@@ -1,0 +1,84 @@
+{
+  "_comment": "Reference hook configuration. Merge these entries into your ~/.claude/settings.json under the 'hooks' key. Replace HOME_DIR with your actual home directory path.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node HOME_DIR/.claude/hooks/scripts/session-reset.js",
+            "timeout": 3
+          }
+        ],
+        "description": "Reset fact-forcing gate tracker for clean session state",
+        "id": "session:reset-tracker"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Read|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node HOME_DIR/.claude/hooks/scripts/fact-force-gate.js",
+            "timeout": 5
+          }
+        ],
+        "description": "Fact-forcing gate: must Read a file before Edit/Write — prevents hallucinated edits",
+        "id": "pre:fact-force-gate"
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node HOME_DIR/.claude/hooks/scripts/config-guard.js",
+            "timeout": 5
+          }
+        ],
+        "description": "Block modifications to linter/formatter config files — fix code, not configs",
+        "id": "pre:config-guard"
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node HOME_DIR/.claude/hooks/scripts/pre-compact-save.js"
+          }
+        ],
+        "description": "Save critical context to project memory + MemPalace before compression",
+        "id": "pre:compact-save"
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node HOME_DIR/.claude/hooks/scripts/console-log-check.js"
+          }
+        ],
+        "description": "Warn about console.log statements in recently edited files",
+        "id": "stop:console-check"
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node HOME_DIR/.claude/hooks/scripts/desktop-notify.js",
+            "async": true,
+            "timeout": 10
+          }
+        ],
+        "description": "macOS notification when Claude finishes a response",
+        "id": "stop:desktop-notify"
+      }
+    ]
+  }
+}

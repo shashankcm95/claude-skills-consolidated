@@ -34,6 +34,19 @@ and concepts from the following open-source projects:
 - **What we learned from**: Clean plugin manifest structure, skill
   versioning and release workflow, marketplace integration patterns.
 
+## Self-Evolving Claude Agent (Community Pattern)
+- **Source**: Various community discussions and open-source examples
+- **What we learned from**: Self-improvement loop concept (work → capture →
+  review → promote → enforce), dynamic agent/skill forging at runtime,
+  quality gates for pattern promotion (2+ sessions, successful outcomes,
+  generality checks), memory-to-rules pipeline.
+
+## Research Mode / Anti-Hallucination Patterns (Community)
+- **Source**: dwarvesf guardrails, Anthropic best practices, community patterns
+- **What we learned from**: Epistemic honesty enforcement (say "I don't know"),
+  source cascade with token budgets, fact-forcing gates (read before write),
+  evidence-first reasoning, citation requirements for factual claims.
+
 ---
 
 All referenced projects are under MIT or permissive licenses. This toolkit
