@@ -9,10 +9,10 @@ Built from original work, informed by architectural patterns from [everything-cl
 | Component | Count | Purpose |
 |-----------|-------|---------|
 | **Agents** | 5 | Specialized subagents: planner, code-reviewer, security-auditor, architect, optimizer |
-| **Rules** | 7 | Always-on guardrails: coding fundamentals, security, workflow, research mode, self-improvement + optional language packs (TypeScript, React/Next.js) |
+| **Rules** | 8 | Always-on guardrails: coding fundamentals, security, workflow, research mode, self-improvement, prompt enrichment + optional language packs (TypeScript, React/Next.js) |
 | **Hooks** | 6 | Deterministic automations: fact-forcing gate, config protection, console.log detection, pre-compact MemPalace save, session reset, desktop notifications |
 | **Commands** | 7 | Slash entry points: `/review`, `/plan`, `/security-audit`, `/self-improve`, `/forge`, `/evolve`, `/prune` |
-| **Skills** | 6 | Workflow guides: full-stack dev, deploy checklist, agent swarm, research mode, self-improvement loop, skill forge |
+| **Skills** | 7 | Workflow guides: full-stack dev, deploy checklist, agent swarm, research mode, self-improvement loop, skill forge, prompt enrichment |
 
 ## Design Philosophy
 
@@ -24,6 +24,7 @@ Built from original work, informed by architectural patterns from [everything-cl
 - **Self-improvement loop**: Work → Capture → Review → Promote → Enforce. Proven patterns graduate from session memory to permanent rules automatically.
 - **Anti-hallucination**: Research mode enforces epistemic honesty, source attribution, and evidence-first reasoning with token budgets.
 - **Living ecosystem**: Forge new agents/skills on the fly, store their personality in MemPalace, recall them for future similar tasks.
+- **Prompt enrichment**: Vague prompts are automatically restructured into 4-part structured prompts (Instructions, Context, Input, Output). Learns from user feedback — starts with human review, gains independence as patterns are approved repeatedly.
 
 ## Install
 
@@ -92,7 +93,8 @@ claude-toolkit/
 │   │   ├── security.md          # Pre-commit security checklist
 │   │   ├── workflow.md          # Git, testing, deploy standards
 │   │   ├── research-mode.md     # Always-on anti-hallucination (auto)
-│   │   └── self-improvement.md  # Always-on gap detection + forging (auto)
+│   │   ├── self-improvement.md  # Always-on gap detection + forging (auto)
+│   │   └── prompt-enrichment.md # Always-on vague prompt detection (auto)
 │   ├── typescript/
 │   │   └── style.md             # Type discipline, Zod, no console.log
 │   └── web/
@@ -120,7 +122,8 @@ claude-toolkit/
 │   ├── agent-swarm/         # Multi-agent orchestration
 │   ├── research-mode/       # Anti-hallucination protocol
 │   ├── self-improve/        # Memory-to-rules promotion pipeline
-│   └── skill-forge/         # Dynamic agent/skill creation
+│   ├── skill-forge/         # Dynamic agent/skill creation
+│   └── prompt-enrichment/   # Structured prompt builder with learning
 ├── install.sh
 ├── LICENSE
 ├── ATTRIBUTION.md
