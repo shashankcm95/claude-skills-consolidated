@@ -236,6 +236,37 @@ run_smoke_tests() {
     failed=$((failed + 1))
   fi
 
+  # Test 9: long-task-start records Bash entry, skips Read
+  local lt_sid="smoke-long-task-$$"
+  local lt_tracker="$tmpdir/claude-long-tasks-$lt_sid.json"
+  rm -f "$lt_tracker"
+  echo '{"tool_name":"Bash","tool_input":{"command":"sleep 99"},"tool_use_id":"smoke-bash-1"}' | CLAUDE_SESSION_ID="$lt_sid" node "$CLAUDE_DIR/hooks/scripts/long-task-start.js" >/dev/null 2>&1
+  local bash_recorded=false
+  [ -f "$lt_tracker" ] && grep -q "smoke-bash-1" "$lt_tracker" && bash_recorded=true
+
+  echo '{"tool_name":"Read","tool_input":{"file_path":"/tmp/x"},"tool_use_id":"smoke-read-1"}' | CLAUDE_SESSION_ID="$lt_sid" node "$CLAUDE_DIR/hooks/scripts/long-task-start.js" >/dev/null 2>&1
+  local read_skipped=true
+  grep -q "smoke-read-1" "$lt_tracker" 2>/dev/null && read_skipped=false
+
+  if $bash_recorded && $read_skipped; then
+    echo "  ✓ long-task-start: tracks Bash, skips Read"
+    passed=$((passed + 1))
+  else
+    echo "  ✗ long-task-start: tracking logic broken (bash=$bash_recorded read_skipped=$read_skipped)"
+    failed=$((failed + 1))
+  fi
+
+  # Test 10: long-task-end removes the entry
+  echo '{"tool_name":"Bash","tool_use_id":"smoke-bash-1","tool_response":{}}' | CLAUDE_SESSION_ID="$lt_sid" node "$CLAUDE_DIR/hooks/scripts/long-task-end.js" >/dev/null 2>&1
+  if ! grep -q "smoke-bash-1" "$lt_tracker" 2>/dev/null; then
+    echo "  ✓ long-task-end: removes completed tool from tracker"
+    rm -f "$lt_tracker"
+    passed=$((passed + 1))
+  else
+    echo "  ✗ long-task-end: failed to remove entry"
+    failed=$((failed + 1))
+  fi
+
   echo ""
   echo "  Results: $passed passed, $failed failed"
   [ "$failed" -gt 0 ] && echo "  ⚠ Some tests failed — check hook scripts and paths"

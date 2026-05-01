@@ -53,6 +53,32 @@
         ],
         "description": "Block modifications to linter/formatter config files — fix code, not configs",
         "id": "pre:config-guard"
+      },
+      {
+        "matcher": "Bash|Task|WebFetch|WebSearch|mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node HOME_DIR/.claude/hooks/scripts/long-task-start.js",
+            "timeout": 5
+          }
+        ],
+        "description": "Track slow tool invocations and spawn watcher for long-task notifications",
+        "id": "pre:long-task-start"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|Task|WebFetch|WebSearch|mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node HOME_DIR/.claude/hooks/scripts/long-task-end.js",
+            "timeout": 5
+          }
+        ],
+        "description": "Mark slow tool invocations as completed (cancels pending watcher)",
+        "id": "post:long-task-end"
       }
     ],
     "Notification": [

@@ -10,7 +10,7 @@ A curated, opinionated enhancement layer for Claude Code. Eight hooks, eight rul
 
 | Layer | Count | Invocation |
 |-------|-------|------------|
-| **Hooks** (deterministic scripts) | 8 | Automatic on Claude Code events |
+| **Hooks** (deterministic scripts) | 11 | Automatic on Claude Code events |
 | **Rules** (always-on guidance) | 8 | Injected into every session |
 | **Agents** (scoped specialists) | 5 | Claude delegates when needed |
 | **Skills** (workflow guides) | 7 | Claude matches to tasks |
@@ -116,6 +116,40 @@ Heuristic vagueness detection runs on every user prompt before Claude processes 
 When vague, injects `[PROMPT-ENRICHMENT-GATE]` text that forces Claude to: check MemPalace for similar past prompts, build the 4-part enriched prompt (Instructions / Context / Input Data / Output Indicator), show it to the user for approval, store the pattern on approval.
 
 **Detection accuracy**: 24/24 on test corpus.
+
+#### 9. `long-task-start.js` — Slow Tool Start Tracker
+**Event**: `PreToolUse` on `Bash|Task|WebFetch|WebSearch|mcp__.*`
+
+Records the start of slow tools to a session-scoped tracker, then spawns a **detached watcher process** that sleeps until the threshold (default 30s). The hook returns immediately so it doesn't block tool execution.
+
+Watched tool patterns:
+- `Bash` — shell commands that may take minutes
+- `Task` — subagent delegations
+- `WebFetch` / `WebSearch` — network-bound calls
+- `mcp__*` — all MCP tool invocations
+
+NOT watched: `Read`, `Edit`, `Write`, `Grep`, `Glob`, `LS` — these complete in milliseconds.
+
+#### 10. `long-task-end.js` — Slow Tool Completion
+**Event**: `PostToolUse` on the same matcher
+
+When a watched tool completes, removes its entry from the tracker. The corresponding watcher process will see no entry when it wakes up and exit silently — no notification fires for tools that completed before the threshold.
+
+#### 11. `long-task-watcher.js` — Detached Single-Fire Timer
+**Event**: spawned by `long-task-start.js`, NOT a Claude Code hook
+
+This is the core of the event-driven design. Each invocation:
+1. Sleeps for `threshold` seconds via `setTimeout` (kernel-level sleep, **0% CPU**)
+2. On wake: reads tracker, looks up its specific `tool_use_id`
+3. If entry missing → tool completed → exit silently
+4. If still present → check focus, check 60s global cooldown
+5. If clear → fire macOS/Linux notification, exit
+
+**Performance**: Each watcher process consumes ~5KB RAM and 0% CPU while sleeping. For a typical session with ~50 tool invocations, that's ~50 short-lived sleep processes — far cheaper than any polling design (which would burn cycles even when nothing's happening).
+
+**Configuration**:
+- `CLAUDE_LONG_TASK_THRESHOLD_SEC=30` — threshold in seconds (default 30)
+- `CLAUDE_LONG_TASK_DISABLE=1` — turn off the system entirely
 
 #### `_focus.js` — Shared Focus Detection Helper
 
@@ -244,7 +278,7 @@ cd ~/Documents/claude-toolkit
 | `--agents` / `--rules` / `--hooks` / `--commands` / `--skills` | Install selectively |
 | `--diff` | Dry run: show what would change without installing |
 | `--backup` | Snapshot existing `~/.claude/` to `~/.claude/backups/backup-{timestamp}/` |
-| `--test` | Run 8-point smoke test suite after install (verifies hooks fire correctly) |
+| `--test` | Run 10-point smoke test suite after install (verifies hooks fire correctly) |
 
 ### Hook Configuration
 
