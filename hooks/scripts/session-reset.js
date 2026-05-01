@@ -18,22 +18,14 @@ try {
     sessionStart: Date.now(),
   }, null, 2));
 
-  // Reset long-task tracker for this session
-  const longTaskTracker = path.join(os.tmpdir(), `claude-long-tasks-${SESSION_ID}.json`);
-  try { fs.unlinkSync(longTaskTracker); } catch { /* didn't exist */ }
-
   // Clean up stale tracker files older than 24 hours
   const tmpDir = os.tmpdir();
   const files = fs.readdirSync(tmpDir);
   const now = Date.now();
   const ONE_DAY = 24 * 60 * 60 * 1000;
-  const STALE_PATTERNS = [
-    /^claude-read-tracker-.*\.json$/,
-    /^claude-long-tasks-.*\.json$/,
-  ];
 
   for (const file of files) {
-    if (!STALE_PATTERNS.some((p) => p.test(file))) continue;
+    if (!/^claude-read-tracker-.*\.json$/.test(file)) continue;
     const filePath = path.join(tmpDir, file);
     try {
       const stat = fs.statSync(filePath);

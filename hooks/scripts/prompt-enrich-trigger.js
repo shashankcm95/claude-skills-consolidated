@@ -109,6 +109,22 @@ This is a deterministic gate — do NOT skip enrichment based on conversation co
 [/PROMPT-ENRICHMENT-GATE]`;
 }
 
+// Always-on logging — disable with CLAUDE_HOOKS_QUIET=1
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+const QUIET = process.env.CLAUDE_HOOKS_QUIET === '1';
+const LOG_DIR = path.join(os.homedir(), '.claude', 'logs');
+const LOG_FILE = path.join(LOG_DIR, 'prompt-enrich-trigger.log');
+
+function log(event, details) {
+  if (QUIET) return;
+  try {
+    fs.mkdirSync(LOG_DIR, { recursive: true });
+    fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] ${event}: ${JSON.stringify(details)}\n`);
+  } catch { /* non-critical */ }
+}
+
 let input = '';
 process.stdin.setEncoding('utf8');
 process.stdin.on('data', (chunk) => { input += chunk; });
@@ -117,19 +133,26 @@ process.stdin.on('end', () => {
     const data = JSON.parse(input);
     const userPrompt = data.prompt || '';
 
+    log('invoked', { promptPreview: userPrompt.slice(0, 100), promptLen: userPrompt.length });
+
     if (!userPrompt) {
-      // No prompt — pass through silently
+      log('skipped', { reason: 'no_prompt' });
       return;
     }
 
-    if (!isVague(userPrompt)) {
+    const vague = isVague(userPrompt);
+    log('classified', { vague });
+
+    if (!vague) {
       // Clear prompt — silent pass-through, zero overhead
       return;
     }
 
     // Vague prompt — inject forcing context
+    log('injected', { instruction: 'PROMPT-ENRICHMENT-GATE' });
     process.stdout.write(buildForcingInstruction(userPrompt));
-  } catch {
+  } catch (err) {
+    log('error', { error: err.message });
     // On error, never block the user's prompt
   }
 });
