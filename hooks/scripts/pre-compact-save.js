@@ -70,9 +70,11 @@ let input = '';
 process.stdin.setEncoding('utf8');
 process.stdin.on('data', (chunk) => { input += chunk; });
 process.stdin.on('end', () => {
+  let checkpointOk = false;
   try {
     const checkpoint = extractCheckpoint(input);
     writeCheckpoint(checkpoint);
+    checkpointOk = true;
     logger('checkpoint_saved', {
       contextLength: input.length,
       mentionedFiles: checkpoint.mentionedFiles.length,
@@ -82,5 +84,10 @@ process.stdin.on('end', () => {
     logger('error', { error: err.message });
   }
 
-  process.stdout.write(input + '\n\n---\n' + SAVE_PROMPT);
+  // Only emit SAVE_PROMPT when the checkpoint was actually written.
+  // Otherwise Claude would be told to reference a file that doesn't exist.
+  const suffix = checkpointOk
+    ? '\n\n---\n' + SAVE_PROMPT
+    : '\n\n---\n[pre-compact-save: checkpoint write failed — MemPalace instruction skipped to avoid hallucinated file references]';
+  process.stdout.write(input + suffix);
 });

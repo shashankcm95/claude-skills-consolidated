@@ -25,6 +25,61 @@ const { log: makeLogger } = require('./_log.js');
 const log = makeLogger('prompt-pattern-store');
 
 const STORE_PATH = path.join(os.homedir(), '.claude', 'prompt-patterns.json');
+const LOCK_PATH = STORE_PATH + '.lock';
+const LOCK_TIMEOUT_MS = 5000;
+const LOCK_STALE_MS = 30000;
+
+// Acquire an exclusive advisory lock by atomically creating a lockfile
+// (O_CREAT | O_EXCL via 'wx' flag). Retries with backoff if the lock is
+// held; clears stale locks (> 30s old). Returns true on success, false
+// on timeout. Caller MUST call releaseLock() in a finally block.
+function acquireLock() {
+  fs.mkdirSync(path.dirname(STORE_PATH), { recursive: true });
+  const start = Date.now();
+  let backoff = 10;
+  while (Date.now() - start < LOCK_TIMEOUT_MS) {
+    try {
+      const fd = fs.openSync(LOCK_PATH, 'wx');
+      fs.writeSync(fd, JSON.stringify({ pid: process.pid, started: Date.now() }));
+      fs.closeSync(fd);
+      return true;
+    } catch (err) {
+      if (err.code !== 'EEXIST') throw err;
+      // Lock exists. Check if it's stale.
+      try {
+        const stat = fs.statSync(LOCK_PATH);
+        if (Date.now() - stat.mtimeMs > LOCK_STALE_MS) {
+          fs.unlinkSync(LOCK_PATH);
+          continue;
+        }
+      } catch { /* lock vanished — race fine, retry */ }
+      // Wait with exponential backoff, capped at 200ms
+      const sleep = Math.min(backoff, 200);
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, sleep);
+      backoff *= 2;
+    }
+  }
+  return false;
+}
+
+function releaseLock() {
+  try { fs.unlinkSync(LOCK_PATH); } catch { /* already gone — fine */ }
+}
+
+// Run a function under exclusive lock. Re-reads the store inside the lock
+// to close the TOCTOU window from the original load → mutate → save flow.
+function withLock(fn) {
+  if (!acquireLock()) {
+    log('lock_timeout', { timeout_ms: LOCK_TIMEOUT_MS });
+    console.error(`Error: could not acquire pattern store lock within ${LOCK_TIMEOUT_MS}ms`);
+    process.exit(2);
+  }
+  try {
+    return fn();
+  } finally {
+    releaseLock();
+  }
+}
 
 function loadStore() {
   try {
@@ -83,50 +138,50 @@ function cmdStore(args) {
     process.exit(1);
   }
 
-  const store = loadStore();
-  const normalizedRaw = normalize(args.raw);
+  withLock(() => {
+    // Load INSIDE the lock — this closes the TOCTOU race where two
+    // concurrent stores both read count=N and both write count=N+1
+    // (true count should be N+2).
+    const store = loadStore();
+    const existing = store.patterns.find((p) => similarity(p.raw, args.raw) >= 0.6);
 
-  // Look for existing pattern with similar raw prompt (>= 60% similar)
-  // 0.6 threshold catches "fix auth" / "fix the auth" but not "fix login" / "fix logout"
-  const existing = store.patterns.find((p) => similarity(p.raw, args.raw) >= 0.6);
+    if (existing) {
+      existing.approvalCount = (existing.approvalCount || 1) + 1;
+      existing.lastUsed = new Date().toISOString();
+      if (args.enriched) existing.enriched = args.enriched;
+      if (args.category) existing.category = args.category;
+      if (args.modified === 'true') existing.userModified = true;
+      saveStore(store);
+      log('store_updated', { raw: args.raw.slice(0, 80), approvalCount: existing.approvalCount });
+      console.log(JSON.stringify({
+        action: 'updated',
+        approvalCount: existing.approvalCount,
+        tier: tierFor(existing.approvalCount),
+        pattern: existing,
+      }, null, 2));
+      return;
+    }
 
-  if (existing) {
-    existing.approvalCount = (existing.approvalCount || 1) + 1;
-    existing.lastUsed = new Date().toISOString();
-    if (args.enriched) existing.enriched = args.enriched;
-    if (args.category) existing.category = args.category;
-    if (args.modified === 'true') existing.userModified = true;
+    const pattern = {
+      raw: args.raw,
+      enriched: args.enriched,
+      category: args.category || 'uncategorized',
+      techniques: args.techniques ? args.techniques.split(',') : [],
+      approvalCount: 1,
+      userModified: args.modified === 'true',
+      createdAt: new Date().toISOString(),
+      lastUsed: new Date().toISOString(),
+    };
+    store.patterns.push(pattern);
     saveStore(store);
-    log('store_updated', { raw: args.raw.slice(0, 80), approvalCount: existing.approvalCount });
+    log('store_new', { raw: args.raw.slice(0, 80), category: pattern.category });
     console.log(JSON.stringify({
-      action: 'updated',
-      approvalCount: existing.approvalCount,
-      tier: tierFor(existing.approvalCount),
-      pattern: existing,
+      action: 'created',
+      approvalCount: 1,
+      tier: tierFor(1),
+      pattern,
     }, null, 2));
-    return;
-  }
-
-  // New pattern
-  const pattern = {
-    raw: args.raw,
-    enriched: args.enriched,
-    category: args.category || 'uncategorized',
-    techniques: args.techniques ? args.techniques.split(',') : [],
-    approvalCount: 1,
-    userModified: args.modified === 'true',
-    createdAt: new Date().toISOString(),
-    lastUsed: new Date().toISOString(),
-  };
-  store.patterns.push(pattern);
-  saveStore(store);
-  log('store_new', { raw: args.raw.slice(0, 80), category: pattern.category });
-  console.log(JSON.stringify({
-    action: 'created',
-    approvalCount: 1,
-    tier: tierFor(1),
-    pattern,
-  }, null, 2));
+  });
 }
 
 function tierFor(approvalCount) {

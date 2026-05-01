@@ -34,15 +34,18 @@ function loadTracker() {
 }
 
 function saveTracker(tracker) {
-  // Atomic write: write to temp file, then rename
+  // Atomic write: write to temp file, then rename. Do NOT fall back to a
+  // non-atomic write — concurrent readers seeing a half-written tracker
+  // get parse errors and reset to {files:{}}, which silently disables the
+  // fact-forcing gate. A missed update is recoverable; corruption is not.
   const tmpFile = TRACKER_PATH + '.tmp.' + process.pid;
   try {
     fs.writeFileSync(tmpFile, JSON.stringify(tracker, null, 2));
     fs.renameSync(tmpFile, TRACKER_PATH);
-  } catch {
-    // If atomic rename fails, fall back to direct write
-    try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
-    fs.writeFileSync(TRACKER_PATH, JSON.stringify(tracker, null, 2));
+  } catch (err) {
+    try { fs.unlinkSync(tmpFile); } catch { /* ignore cleanup failure */ }
+    logger('atomic_write_failed', { error: err.message });
+    // Intentionally don't re-throw — hook should fail open, not block tools
   }
 }
 
@@ -83,6 +86,18 @@ process.stdin.on('end', () => {
       const wasRead = tracker.files[filePath];
 
       if (toolName === 'Write' && !fs.existsSync(filePath)) {
+        // Detect rm-then-Write bypass attempt: file was previously Read
+        // (so it existed) but is now gone. Could be legitimate
+        // (delete-and-recreate) or a deliberate bypass via Bash rm.
+        // Log for audit; full enforcement requires a Bash hook to track
+        // rm operations explicitly.
+        if (wasRead) {
+          logger('write_to_deleted_file', {
+            filePath,
+            readAt: wasRead,
+            note: 'File was previously Read but no longer exists. Possible rm-then-Write bypass.',
+          });
+        }
         logger('approve', { toolName, filePath, reason: 'new_file' });
         process.stdout.write(JSON.stringify({ decision: 'approve' }));
         return;

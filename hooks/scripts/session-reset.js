@@ -14,10 +14,14 @@ const SESSION_ID = process.env.CLAUDE_SESSION_ID || process.env.CLAUDE_CONVERSAT
 const TRACKER_PATH = path.join(os.tmpdir(), `claude-read-tracker-${SESSION_ID}.json`);
 
 try {
-  fs.writeFileSync(TRACKER_PATH, JSON.stringify({
+  // Use the same atomic-rename pattern that fact-force-gate uses on this file
+  // (writers must be consistent or readers see partial JSON).
+  const tmpPath = TRACKER_PATH + '.tmp.' + process.pid;
+  fs.writeFileSync(tmpPath, JSON.stringify({
     files: {},
     sessionStart: Date.now(),
   }, null, 2));
+  fs.renameSync(tmpPath, TRACKER_PATH);
   logger('reset', { sessionId: SESSION_ID });
 
   const tmpDir = os.tmpdir();
