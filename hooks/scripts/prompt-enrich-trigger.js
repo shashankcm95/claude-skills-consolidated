@@ -193,7 +193,7 @@ function buildForcingInstruction(rawPrompt) {
 
 The user's prompt has been flagged as VAGUE by the deterministic enrichment hook. Before acting, you MUST:
 
-1. **Check existing patterns**: \`node ~/.claude/hooks/scripts/prompt-pattern-store.js lookup --raw "<raw prompt>"\`
+1. **Check existing patterns**: \`node ~/.claude/scripts/prompt-pattern-store.js lookup --raw "<raw prompt>"\`
 2. **Build the 4-part enriched prompt** wrapped in [ENRICHED-PROMPT-START]...[ENRICHED-PROMPT-END] markers (the auto-store hook reads these to persist the pattern):
 \`\`\`
 [ENRICHED-PROMPT-START]

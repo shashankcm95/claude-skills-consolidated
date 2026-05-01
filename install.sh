@@ -105,6 +105,22 @@ install_hooks() {
   mkdir -p "$CLAUDE_DIR/hooks/scripts"
   cp "$SCRIPT_DIR"/hooks/scripts/*.js "$CLAUDE_DIR/hooks/scripts/"
   chmod +x "$CLAUDE_DIR"/hooks/scripts/*.js
+  # Phase D: also copy config-guard-patterns.json (data file used by config-guard.js)
+  if [ -f "$SCRIPT_DIR/hooks/config-guard-patterns.json" ]; then
+    cp "$SCRIPT_DIR/hooks/config-guard-patterns.json" "$CLAUDE_DIR/hooks/"
+    echo "  -> config-guard-patterns.json installed"
+  fi
+  # Phase F3: install scripts/ (CLI utilities, not hooks)
+  if [ -d "$SCRIPT_DIR/scripts" ]; then
+    mkdir -p "$CLAUDE_DIR/scripts"
+    for f in "$SCRIPT_DIR"/scripts/*.js; do
+      [ -f "$f" ] && cp "$f" "$CLAUDE_DIR/scripts/" && chmod +x "$CLAUDE_DIR/scripts/$(basename "$f")"
+    done
+    for f in "$SCRIPT_DIR"/scripts/*.sh; do
+      [ -f "$f" ] && cp "$f" "$CLAUDE_DIR/scripts/" && chmod +x "$CLAUDE_DIR/scripts/$(basename "$f")"
+    done
+    echo "  -> CLI scripts installed to $CLAUDE_DIR/scripts/"
+  fi
   echo "  -> Hook scripts installed"
   echo ""
   echo "  NOTE: Hook configuration must be manually merged."

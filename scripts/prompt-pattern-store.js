@@ -21,13 +21,26 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { log: makeLogger } = require('./_log.js');
+// Phase-F3: this is a CLI utility, not a hook — moved to scripts/.
+// Look for _log.js in ../hooks/scripts/ (canonical) or ./_log.js
+// (compat for old layouts).
+let makeLogger;
+try {
+  ({ log: makeLogger } = require('../hooks/scripts/_log.js'));
+} catch {
+  try {
+    ({ log: makeLogger } = require('./_log.js'));
+  } catch {
+    makeLogger = () => () => {}; // no-op logger if helper missing
+  }
+}
 const log = makeLogger('prompt-pattern-store');
 
 const STORE_PATH = path.join(os.homedir(), '.claude', 'prompt-patterns.json');
 const LOCK_PATH = STORE_PATH + '.lock';
 const LOCK_TIMEOUT_MS = 5000;
 const LOCK_STALE_MS = 30000;
+const MAX_PATTERNS = 500; // F5: LRU eviction threshold
 
 // Acquire an exclusive advisory lock by atomically creating a lockfile
 // (O_CREAT | O_EXCL via 'wx' flag). Retries with backoff if the lock is
@@ -101,9 +114,14 @@ function saveStore(store) {
   }
 }
 
-// Normalize prompts for fuzzy comparison
+// Normalize prompts for fuzzy comparison.
+// Phase-F6: Unicode-normalize and strip zero-width/control chars to
+// prevent dedup bypass via lookalike characters (fix the auth vs
+// f​ix the auth).
 function normalize(prompt) {
   return prompt
+    .normalize('NFKC')                              // canonical decomposition + compatibility
+    .replace(/[​-‏⁠﻿\x00-\x08\x0E-\x1F\x7F]/g, '')  // zero-width + control chars
     .toLowerCase()
     .trim()
     .replace(/\s+/g, ' ')
@@ -185,6 +203,17 @@ function cmdStore(args) {
       lastUsed: new Date().toISOString(),
     };
     store.patterns.push(pattern);
+
+    // Phase-F5: LRU eviction. Keep only the MAX_PATTERNS most-recently-
+    // used patterns (sorted by lastUsed). Prevents unbounded growth
+    // and keeps lookup fast.
+    if (store.patterns.length > MAX_PATTERNS) {
+      const before = store.patterns.length;
+      store.patterns.sort((a, b) => new Date(b.lastUsed) - new Date(a.lastUsed));
+      store.patterns = store.patterns.slice(0, MAX_PATTERNS);
+      log('lru_evicted', { evicted: before - store.patterns.length });
+    }
+
     saveStore(store);
     log('store_new', { raw: args.raw.slice(0, 80), category: pattern.category });
     console.log(JSON.stringify({

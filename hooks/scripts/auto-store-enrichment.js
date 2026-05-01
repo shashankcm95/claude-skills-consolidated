@@ -22,7 +22,21 @@ const path = require('path');
 const { log: makeLogger } = require('./_log.js');
 const log = makeLogger('auto-store-enrichment');
 
-const STORE_SCRIPT = path.join(__dirname, 'prompt-pattern-store.js');
+// Phase-F3: prompt-pattern-store.js was relocated to scripts/.
+// Resolve via candidates: ../../scripts/ (canonical), ../scripts/ (some
+// installs), ./ (compat with old layout).
+function resolveStoreScript() {
+  const candidates = [
+    path.join(__dirname, '..', '..', 'scripts', 'prompt-pattern-store.js'),
+    path.join(__dirname, '..', 'scripts', 'prompt-pattern-store.js'),
+    path.join(__dirname, 'prompt-pattern-store.js'),
+  ];
+  for (const c of candidates) {
+    try { fs.accessSync(c, fs.constants.F_OK); return c; } catch { /* next */ }
+  }
+  return candidates[0]; // best-effort default
+}
+const STORE_SCRIPT = resolveStoreScript();
 
 // Parse [ENRICHED-PROMPT-START]...[ENRICHED-PROMPT-END] blocks from text.
 // Returns array of {raw, category, techniques, enriched, modified} objects.
