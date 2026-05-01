@@ -125,16 +125,26 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     if (argv[i].startsWith('--')) {
       const key = argv[i].slice(2);
-      args[key] = argv[i + 1];
-      i++;
+      const next = argv[i + 1];
+      // Phase-E2: don't consume the next token if it's another --flag
+      // (avoids silently mismapping when a flag value is missing)
+      if (next !== undefined && !next.startsWith('--')) {
+        args[key] = next;
+        i++;
+      } else {
+        args[key] = true; // boolean flag form
+      }
     }
   }
   return args;
 }
 
 function cmdStore(args) {
-  if (!args.raw || !args.enriched) {
-    console.error('Error: --raw and --enriched are required');
+  // Phase-E2: validate string values (not just truthy) — parseArgs may
+  // assign `true` for missing values, which then crashes downstream.
+  if (typeof args.raw !== 'string' || typeof args.enriched !== 'string' ||
+      !args.raw.trim() || !args.enriched.trim()) {
+    console.error('Error: --raw and --enriched are required (must be non-empty strings)');
     process.exit(1);
   }
 
@@ -143,6 +153,8 @@ function cmdStore(args) {
     // concurrent stores both read count=N and both write count=N+1
     // (true count should be N+2).
     const store = loadStore();
+    // Phase-E5: removed dead variable `normalizedRaw` (similarity()
+    // handles normalization internally).
     const existing = store.patterns.find((p) => similarity(p.raw, args.raw) >= 0.6);
 
     if (existing) {

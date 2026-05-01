@@ -91,12 +91,28 @@ if [ -d "$LOG_DIR" ]; then
   if [ ${#log_files[@]} -eq 0 ]; then
     warn "No log files in ~/.claude/logs/ — hooks may not be firing"
   else
+    # Phase-E6: extract date detection so failures are visible (not
+    # silently swallowed inside a $(...) substitution that inflates
+    # last_24h to total).
+    cutoff=""
+    if date -u -v-24H +%Y-%m-%dT%H:%M:%S >/dev/null 2>&1; then
+      cutoff=$(date -u -v-24H +%Y-%m-%dT%H:%M:%S)
+    elif date -u --date='24 hours ago' +%Y-%m-%dT%H:%M:%S >/dev/null 2>&1; then
+      cutoff=$(date -u --date='24 hours ago' +%Y-%m-%dT%H:%M:%S)
+    else
+      warn "Unable to determine 24h cutoff (BSD/GNU date both failed) — showing total only"
+    fi
+
     for log_file in "${log_files[@]}"; do
       log_name=$(basename "$log_file" .log)
       total=$(wc -l < "$log_file" | tr -d ' ')
-      last_24h=$(awk -v cutoff="$(date -u -v-24H +%Y-%m-%dT%H:%M:%S 2>/dev/null || date -u --date='24 hours ago' +%Y-%m-%dT%H:%M:%S 2>/dev/null)" '$0 >= "[" cutoff' "$log_file" | wc -l | tr -d ' ')
+      if [ -n "$cutoff" ]; then
+        last_24h=$(awk -v cutoff="$cutoff" '$0 >= "[" cutoff' "$log_file" | wc -l | tr -d ' ')
+        info "$log_name: $total total, $last_24h in last 24h"
+      else
+        info "$log_name: $total total"
+      fi
       last_entry=$(tail -1 "$log_file" 2>/dev/null | cut -c1-120)
-      info "$log_name: $total total, $last_24h in last 24h"
       [ -n "$last_entry" ] && info "  last: $last_entry"
     done
   fi

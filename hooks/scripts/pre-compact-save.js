@@ -17,8 +17,11 @@ function extractCheckpoint(inputText) {
   const timestamp = new Date().toISOString();
   const cwd = process.cwd();
 
-  // Extract file paths mentioned in the conversation (heuristic)
-  const filePathPattern = /(?:\/[\w.-]+)+\.\w+/g;
+  // Extract file paths mentioned in the conversation (heuristic).
+  // Phase-E4: tightened regex — require ≥2 directory segments and a
+  // 1-10 char extension. Avoids matching version numbers (/3.2.1) and
+  // URL path components (/oauth/token.json fragments).
+  const filePathPattern = /(?:\/[\w.-]+){2,}\.\w{1,10}/g;
   const mentionedFiles = [...new Set(inputText.match(filePathPattern) || [])].slice(0, 20);
 
   return {

@@ -46,14 +46,17 @@ process.stdin.on('end', () => {
     for (const file of changedFiles) {
       const content = fs.readFileSync(file, 'utf8');
       const lines = content.split('\n');
+      // Phase-E1: Removed `break` — collect ALL violations per file so
+      // developers don't fix only the first reported line and miss others.
+      // Phase-F8: Added \b word boundary to avoid false positives on
+      // identifiers like `foo.console.log(`.
       for (let i = 0; i < lines.length; i++) {
-        if (/console\.log\(/.test(lines[i]) &&
+        if (/\bconsole\.log\(/.test(lines[i]) &&
             !/\/\/\s*eslint-disable/.test(lines[i]) &&
             !/\/\*.*eslint-disable.*\*\//.test(lines[i]) &&
             !(i > 0 && /eslint-disable-next-line/.test(lines[i - 1]))) {
           const relPath = path.relative(repoRoot, file);
           filesWithConsoleLog.push(`  ${relPath}:${i + 1}`);
-          break;
         }
       }
     }
