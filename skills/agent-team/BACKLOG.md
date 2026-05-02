@@ -147,7 +147,19 @@ The flag is now resolved. SKILL.md's "triple contract" section accurately descri
 
 **Estimate**: ~50 LoC + ~30min.
 
-### Persona ↔ contract drift validator
+### Persona ↔ contract drift validator — SHIPPED as H.3.0 (contracts-validate.js, partial closure)
+
+**H.3.0 update**: `scripts/agent-team/contracts-validate.js` ships 7 validators covering pattern-status drift, contract skill_status validity, kb_scope ref resolution, and pattern Related bidirectionality. **Persona-text vs contract-shape drift** (the architect's original example: persona says "800-1500 words" but contract enforces 2000 chars / ~300 words) is NOT yet covered — would require parsing the persona markdown for word-count claims. Defer that specific check as a follow-up.
+
+First production run of the H.3.0 validator surfaced 29 real drift violations:
+- 4 pattern-status-readme-consistency (README still shows `proposed` for patterns whose frontmatter says `implementing`)
+- 10 pattern-related asymmetric links (architect's MEDIUM finding from CS-1)
+- 14 contract-skills-status-keys (auditor contracts 01-05 reference required+recommended skills but lack `skill_status` map; the map was added in H.2-bridge for builders only)
+- 1 available-but-missing (12-security-engineer references `security-audit` as `available` but `skills/security-audit/SKILL.md` doesn't exist)
+
+**Original-scope marker preserved below** — the prior persona-text-vs-contract drift check is not done; treat as a follow-up sub-task of this entry.
+
+#### Original-scope marker
 
 **Source**: chaos-20260502-060039, architect HIGH (#4 top-leverage change).
 
