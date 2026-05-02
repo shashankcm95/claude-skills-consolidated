@@ -333,10 +333,17 @@ let antiPatternWarns = 0;
 // EITHER check.id (e.g., "F4", "A2") OR check.check name (e.g.,
 // "noTextSimilarityToPriorRun"). Skipped checks record status='skipped'
 // (not pass/fail) so the audit trail remains explicit.
+//
+// H.3.1 fix (CS-1 hacker.zoe CRIT-2): a contract can opt OUT of being skipped
+// via `mustNotSkip: true`. Without this, --skip-checks is a backdoor — any
+// caller can skip every required check including security-critical ones.
+// Default behavior (mustNotSkip absent) = skippable, preserving backwards
+// compat with existing contracts.
 const skipSet = new Set(
   (args['skip-checks'] || '').split(',').map((s) => s.trim()).filter(Boolean)
 );
 function shouldSkip(check) {
+  if (check.mustNotSkip) return false;
   return skipSet.has(check.id) || skipSet.has(check.check);
 }
 
@@ -347,7 +354,11 @@ for (const check of contract.functional || []) {
   }
   const fn = functionalChecks[check.check];
   if (!fn) {
+    // H.3.1 fix (CS-1 hacker.zoe CRIT-1, BACKLOG since H.2-bridge):
+    // unknown_check on a REQUIRED check should fail, not silently pass.
+    // Without this, a contract with all-invented check names verdicts as pass.
     result.functional[check.id] = { check: check.check, status: 'unknown_check' };
+    if (check.required !== false) functionalFailures++;
     continue;
   }
   try {

@@ -68,11 +68,29 @@ function parseArgs(argv) {
 
 function cmdSpawn(args) {
   if (!args['run-id'] || !args.child) {
-    console.error('Usage: spawn --run-id X --parent P --child C --task "..." --role R');
+    console.error('Usage: spawn --run-id X --parent P --child C --task "..." --role R [--max-depth N]');
     process.exit(1);
   }
+  // H.3.1 (CS-1 architect HIGH, persistent from chaos-20260502-060039):
+  // max_depth enforcement. SKILL.md documents max_depth=3 invariant; without
+  // this guard, a hostile or buggy spawner can create depth-7+ nodes.
+  // CS-1 architect: "ZERO progress in 9 sub-phases". 3 lines now.
+  const maxDepth = parseInt(args['max-depth'] || '3', 10);
   const tree = load(args['run-id']);
-  // M-2 fix: warn (don't silently overwrite) on duplicate spawn.
+  if (args.parent && tree.nodes[args.parent]) {
+    const parentDepth = depthOf(args.parent, tree);
+    if (parentDepth >= 0 && parentDepth + 1 > maxDepth) {
+      console.error(`Error: spawn would exceed max_depth=${maxDepth} (parent depth=${parentDepth}, child would be at depth=${parentDepth + 1}). Refusing.`);
+      process.exit(1);
+    }
+  }
+  // CS-1 code-reviewer C-2: cmdSpawn allows --child === --parent producing a self-cycle.
+  // depthOf catches the symptom (returns -1) but the bug is upstream.
+  if (args.parent && args.parent === args.child) {
+    console.error(`Error: --child cannot equal --parent ("${args.child}"). Refusing self-cycle spawn.`);
+    process.exit(1);
+  }
+  // M-2 fix (H.2.1): warn (don't silently overwrite) on duplicate spawn.
   // Audit trail is the whole point of tree.json — losing prior status / completedAt /
   // children silently is the failure mode chaos-20260502-060039 flagged.
   if (tree.nodes[args.child]) {

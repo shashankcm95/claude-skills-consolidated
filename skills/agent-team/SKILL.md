@@ -119,7 +119,7 @@ This feeds the existing `/self-improve` workflow so users can see WHICH agent pa
 
 ### 7. Super agent reviews
 After all leaves complete and contracts verify:
-- Super agent runs the aggregator (`hierarchical-aggregate.js`)
+- Super agent runs the aggregator at `~/Documents/claude-toolkit/swarm/hierarchical-aggregate.js` (NOT in `scripts/agent-team/` — historical placement; persistent BACKLOG item to relocate or symlink)
 - Reviews orchestrator-level synthesis
 - Spot-checks actor outputs based on trust scores (Phase H.2)
 - Writes consolidated report
