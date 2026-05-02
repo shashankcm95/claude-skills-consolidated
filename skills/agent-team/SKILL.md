@@ -150,10 +150,52 @@ The defense:
 - **Pattern contract** (H.2) detects missing abstraction (no loop construct found in the code)
 - **Trust scoring** (H.2) penalizes patterns that brute-force their way to passing
 
+## Persona-skills mapping (Phase H.2-bridge)
+
+Each persona contract has `skills.required` (must invoke ≥1) and `skills.recommended` (advisory):
+
+```json
+"skills": {
+  "required": ["security-audit"],
+  "recommended": ["review", "research-mode"]
+}
+```
+
+Spawn prompts list **skill names only** (not descriptions) — the actor invokes the `Skill` tool to load on demand. Saves ~80% prompt-tokens per skill mention. See pattern: [persona-skills-mapping](patterns/persona-skills-mapping.md).
+
+## Agent identity & reputation (Phase H.2-bridge)
+
+Persona = role; identity = named instance. Each persona has a small roster (e.g. architect → `["mira", "theo", "ari"]`); spawns assign one identity at a time and the identity accumulates per-instance trust across runs. So "I trust mira" becomes meaningful, not just "I trust architects."
+
+```bash
+node scripts/agent-team/agent-identity.js init      # one-time, creates ~/.claude/agent-identities.json
+node scripts/agent-team/agent-identity.js assign --persona 04-architect    # round-robin returns "mira"
+node scripts/agent-team/agent-identity.js stats --identity 04-architect.mira
+```
+
+Verifier accepts `--identity persona.name` and `--skills s1,s2`; both flow into `agent-patterns.json` (per-persona aggregate) AND `agent-identities.json` (per-identity track record). See pattern: [agent-identity-reputation](patterns/agent-identity-reputation.md).
+
+## Pattern library
+
+Reusable patterns extracted from HETS development live in `patterns/`. Each pattern has a **summary block (≤5 lines, paste-inline cheap)** and a full doc with intent, components, failure modes, validation strategy. See `patterns/README.md` for the index. Current catalog:
+
+| Pattern | Status |
+|---------|--------|
+| [Asymmetric Challenger](patterns/asymmetric-challenger.md) | proposed |
+| [Trust-Tiered Verification Depth](patterns/trust-tiered-verification.md) | proposed |
+| [Convergence-as-Signal](patterns/convergence-as-signal.md) | observed |
+| [Persona-Skills Mapping](patterns/persona-skills-mapping.md) | implementing |
+| [Agent Identity & Reputation](patterns/agent-identity-reputation.md) | implementing |
+| [Meta-Validation](patterns/meta-validation.md) | active |
+| [Prompt Distillation](patterns/prompt-distillation.md) | implementing |
+
+To target a pattern in a future chaos run, read its "Validation Strategy" section — each lists concrete failure modes and how an actor could stress them. `chaos-test --pattern <name>` is planned for full H.2.
+
 ## Files in this skill
 
 - `SKILL.md` — this file
 - `contract-format.md` — full spec for contract JSON
+- `patterns/` — reusable architectural patterns (this is the substrate for new simulations)
 - `role-templates/pm.md` — super-agent role template
 - `role-templates/senior.md` — orchestrator role template
 - `role-templates/engineer.md` — actor role template
@@ -161,13 +203,14 @@ The defense:
 ## Files this skill consumes (in scripts/agent-team/)
 
 - `tree-tracker.js` — BFS/DFS over the spawn tree, persisted to tree.json
-- `contract-verifier.js` — runs functional + anti-pattern checks
-- `pattern-recorder.js` — appends results to ~/.claude/agent-patterns.json (the self-learning hook)
+- `contract-verifier.js` — runs functional + anti-pattern checks (post-fix: prototype-pollution-safe, .every semantics, valid JS regex for end-of-input)
+- `pattern-recorder.js` — appends results to ~/.claude/agent-patterns.json; forwards `--identity` to agent-identity.js when supplied
+- `agent-identity.js` — assign/list/stats/record per-identity; round-robin assignment with file-locked persistence to ~/.claude/agent-identities.json
 - (Phase H.2: `trust-tracker.js` — persists per-persona trust scores)
 - (Phase H.2: `budget-manager.js` — handles on-demand token extensions)
 
-## Phase H.1 vs H.2
+## Phase status
 
-**Currently implemented (H.1)**: tree tracking, functional + anti-pattern contracts, self-learning recorder. The chaos test is the first consumer.
-
-**Deferred to H.2**: trust scoring with persistence, trust-based review depth, on-demand budget extensions, full pattern contracts (structural code review).
+- **H.1 (shipped)**: tree tracking, functional + anti-pattern contracts, self-learning recorder
+- **H.2-bridge (this phase)**: verifier-bug fixes (C-1 prototype pollution, H-1 `.some` semantics, `\Z` regex), persona-skills mapping in contracts, identity registry + per-identity recording, patterns library
+- **H.2 (next)**: trust scoring with persistence + trust-tiered review depth, on-demand budget extensions, full pattern contracts (structural code review), `invokesRequiredSkills` verifier check (transcript-driven), asymmetric challenger spawning, `chaos-test --pattern <name>`

@@ -46,7 +46,7 @@ Specification for `*.contract.json` files. These files define what an agent must
 | `frontmatterHasFields` | YAML has all required fields | `{ fields: ["id", "role", "depth", ...] }` |
 | `minFindings` | Output has ≥N severity-section findings | `{ min: 5 }` |
 | `hasFileCitations` | Output has ≥N `file:line` references | `{ min: 3 }` |
-| `hasSeveritySections` | Output has at least one severity section | `{ severities: ["CRITICAL", "HIGH", ...] }` |
+| `hasSeveritySections` | Output has **all** listed severity sections (each `severities` entry must appear as a `## SEVERITY` heading). Empty sections like `## CRITICAL\n_None this run._` count as present. | `{ severities: ["CRITICAL", "HIGH", ...] }` |
 | `outputLengthMin` | Output body is at least N chars | `{ min: 500 }` |
 | `outputLengthMax` | Output body is at most N chars | `{ max: 50000 }` |
 | `containsKeywords` | Output contains specific keywords | `{ keywords: ["verified", "evidence"] }` |

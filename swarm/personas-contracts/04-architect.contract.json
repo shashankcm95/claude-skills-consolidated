@@ -2,6 +2,10 @@
   "agentId": "actor-architect",
   "persona": "04-architect",
   "role": "actor",
+  "skills": {
+    "required": ["plan"],
+    "recommended": ["agent-team", "review", "research-mode"]
+  },
   "budget": {
     "tokens": 30000,
     "extensible": true,

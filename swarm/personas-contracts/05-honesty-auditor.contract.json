@@ -2,6 +2,10 @@
   "agentId": "actor-honesty-auditor",
   "persona": "05-honesty-auditor",
   "role": "actor",
+  "skills": {
+    "required": ["self-improve"],
+    "recommended": ["prune", "agent-team"]
+  },
   "budget": {
     "tokens": 25000,
     "extensible": true,

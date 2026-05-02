@@ -10,19 +10,33 @@
 
 ## Contract verification step (NEW in HETS)
 
+**Spawn-time (Phase H.2-bridge):** before spawning each actor, assign an identity from the persona's roster. Identity scopes per-instance trust — see [agent-identity-reputation pattern](../skills/agent-team/patterns/agent-identity-reputation.md):
+
+```bash
+IDENTITY=$(node ~/Documents/claude-toolkit/scripts/agent-team/agent-identity.js assign --persona ${PERSONA} --task chaos-${RUN_ID} | jq -r .identity)
+# Use $IDENTITY in actor frontmatter and as the file suffix.
+```
+
+Spawn prompt MUST include a skills block listing `skills.required` + `skills.recommended` from the contract by **name only** (the actor invokes `Skill` tool to load on demand). See [persona-skills-mapping](../skills/agent-team/patterns/persona-skills-mapping.md) + [prompt-distillation](../skills/agent-team/patterns/prompt-distillation.md).
+
 After all actors complete, BEFORE writing the consolidated report, run:
 
 ```bash
-for actor in actor-hacker actor-confused-user actor-code-reviewer actor-architect actor-honesty-auditor; do
-  CONTRACT=~/Documents/claude-toolkit/swarm/personas-contracts/${actor#actor-}.contract.json
-  OUTPUT=~/Documents/claude-toolkit/swarm/run-state/${RUN_ID}/node-${actor}.md
+for actor_id in "${ACTOR_IDS[@]}"; do  # e.g. "actor-architect-mira"
+  PERSONA_PART=$(echo "$actor_id" | sed 's/-[^-]*$//' | sed 's/^actor-//')
+  CONTRACT=~/Documents/claude-toolkit/swarm/personas-contracts/${PERSONA_PART}.contract.json
+  OUTPUT=~/Documents/claude-toolkit/swarm/run-state/${RUN_ID}/node-${actor_id}.md
+  IDENTITY="${PERSONA_PART}.${actor_id##*-}"
   if [ -f "$OUTPUT" ] && [ -f "$CONTRACT" ]; then
-    node ~/.claude/scripts/agent-team/contract-verifier.js \
+    node ~/Documents/claude-toolkit/scripts/agent-team/contract-verifier.js \
       --contract "$CONTRACT" --output "$OUTPUT" \
-      --previous-run ~/Documents/claude-toolkit/swarm/run-state/$PREVIOUS_RUN_ID
+      --previous-run ~/Documents/claude-toolkit/swarm/run-state/$PREVIOUS_RUN_ID \
+      --identity "$IDENTITY"
   fi
 done
 ```
+
+This validates the output AND records to BOTH `~/.claude/agent-patterns.json` (per-persona aggregate) AND `~/.claude/agent-identities.json` (per-identity track record). **Path note**: invoke from `~/Documents/claude-toolkit/scripts/...` (not `~/.claude/scripts/...`) to avoid the tree-tracker `__dirname` path-resolution issue surfaced in chaos-20260502-060039.
 
 For each `verdict: "fail"` result, decide:
 - **Re-spawn** the actor with a tighter prompt highlighting the failed checks

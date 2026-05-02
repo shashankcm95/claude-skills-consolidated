@@ -2,6 +2,10 @@
   "agentId": "actor-hacker",
   "persona": "01-hacker",
   "role": "actor",
+  "skills": {
+    "required": ["security-audit"],
+    "recommended": ["review", "research-mode"]
+  },
   "budget": {
     "tokens": 30000,
     "extensible": true,

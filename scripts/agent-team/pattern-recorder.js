@@ -82,7 +82,7 @@ function saveStore(store) {
 
 function cmdRecord(args) {
   if (!args['task-signature'] || !args.verdict || !args.persona) {
-    console.error('Usage: record --task-signature X --persona Y --verdict pass|partial|fail [--agent-role R] [--findings-count N]');
+    console.error('Usage: record --task-signature X --persona Y --verdict pass|partial|fail [--agent-role R] [--findings-count N] [--identity persona.name] [--skills s1,s2]');
     process.exit(1);
   }
 
@@ -97,6 +97,7 @@ function cmdRecord(args) {
       task_signature: args['task-signature'],
       agent_role: args['agent-role'] || 'actor',
       persona: args.persona,
+      identity: args.identity || null,
       verdict: args.verdict,
       findings_count: parseInt(args['findings-count'] || '0', 10),
       ran_at: new Date().toISOString(),
@@ -109,35 +110,63 @@ function cmdRecord(args) {
     }
 
     saveStore(store);
-    console.log(JSON.stringify({ action: 'recorded', total: store.patterns.length }));
+
+    // If --identity supplied, also forward to agent-identity.js so per-identity
+    // verdict counts stay in sync with per-persona pattern records.
+    let identityForwarded = false;
+    if (args.identity) {
+      try {
+        const { spawnSync } = require('child_process');
+        const identityScript = path.join(__dirname, 'agent-identity.js');
+        if (fs.existsSync(identityScript)) {
+          const fwdArgs = [identityScript, 'record', '--identity', args.identity, '--verdict', args.verdict];
+          if (args['task-signature']) fwdArgs.push('--task', args['task-signature']);
+          if (args.skills) fwdArgs.push('--skills', args.skills);
+          const r = spawnSync(process.execPath, fwdArgs, { stdio: 'pipe', timeout: 5000 });
+          identityForwarded = r.status === 0;
+        }
+      } catch { /* identity forwarder is best-effort */ }
+    }
+
+    console.log(JSON.stringify({ action: 'recorded', total: store.patterns.length, identityForwarded }));
   } finally {
     releaseLock();
   }
 }
 
-function cmdStats() {
+function cmdStats(args) {
   const store = loadStore();
   const byPersona = {};
+  const byIdentity = {};
   for (const p of store.patterns) {
     if (!byPersona[p.persona]) byPersona[p.persona] = { total: 0, pass: 0, partial: 0, fail: 0 };
     byPersona[p.persona].total++;
     byPersona[p.persona][p.verdict] = (byPersona[p.persona][p.verdict] || 0) + 1;
+
+    if (p.identity) {
+      if (!byIdentity[p.identity]) byIdentity[p.identity] = { total: 0, pass: 0, partial: 0, fail: 0 };
+      byIdentity[p.identity].total++;
+      byIdentity[p.identity][p.verdict] = (byIdentity[p.identity][p.verdict] || 0) + 1;
+    }
   }
+  const tier = (passRate) => passRate >= 0.8 ? 'high-trust (spot-check only)'
+    : passRate >= 0.5 ? 'medium-trust (full review)'
+    : 'low-trust (verify everything)';
   const trustHints = {};
   for (const [persona, stats] of Object.entries(byPersona)) {
     const passRate = stats.total > 0 ? (stats.pass / stats.total) : 0;
-    trustHints[persona] = {
-      passRate: Math.round(passRate * 100) / 100,
-      tier: passRate >= 0.8 ? 'high-trust (spot-check only)'
-        : passRate >= 0.5 ? 'medium-trust (full review)'
-        : 'low-trust (verify everything)',
-      ...stats,
-    };
+    trustHints[persona] = { passRate: Math.round(passRate * 100) / 100, tier: tier(passRate), ...stats };
+  }
+  const identityHints = {};
+  for (const [id, stats] of Object.entries(byIdentity)) {
+    const passRate = stats.total > 0 ? (stats.pass / stats.total) : 0;
+    identityHints[id] = { passRate: Math.round(passRate * 100) / 100, tier: tier(passRate), ...stats };
   }
   console.log(JSON.stringify({
     total: store.patterns.length,
     storePath: STORE_PATH,
     byPersona: trustHints,
+    byIdentity: identityHints,
   }, null, 2));
 }
 
@@ -151,7 +180,7 @@ const args = parseArgs(rest);
 
 switch (subcommand) {
   case 'record': cmdRecord(args); break;
-  case 'stats':  cmdStats(); break;
+  case 'stats':  cmdStats(args); break;
   case 'list':   cmdList(); break;
   default:
     console.error('Usage: pattern-recorder.js {record|stats|list} [args]');

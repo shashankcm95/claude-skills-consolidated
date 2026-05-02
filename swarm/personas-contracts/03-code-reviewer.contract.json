@@ -2,6 +2,10 @@
   "agentId": "actor-code-reviewer",
   "persona": "03-code-reviewer",
   "role": "actor",
+  "skills": {
+    "required": ["review"],
+    "recommended": ["simplify", "security-audit", "research-mode"]
+  },
   "budget": {
     "tokens": 30000,
     "extensible": true,

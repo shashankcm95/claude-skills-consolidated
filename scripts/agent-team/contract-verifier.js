@@ -80,7 +80,10 @@ function jaccard(a, b) {
   return inter / (aw.size + bw.size - inter);
 }
 
-const functionalChecks = {
+// C-1 fix: Object.create(null) so a contract with check: "constructor" (or any
+// other Object.prototype member) cannot resolve to the inherited method, which
+// would otherwise return a truthy function and force-pass every check.
+const functionalChecks = Object.assign(Object.create(null), {
   outputContainsFrontmatter: () => parsed !== null,
   frontmatterHasFields: (cArgs) => {
     if (!parsed) return false;
@@ -88,13 +91,15 @@ const functionalChecks = {
   },
   minFindings: (cArgs) => countFindings(body) >= cArgs.min,
   hasFileCitations: (cArgs) => countFileCitations(body) >= cArgs.min,
-  hasSeveritySections: (cArgs) => cArgs.severities.some((s) => new RegExp(`##\\s+(?:🔴|🟠|🟡|🔵)?\\s*${s}\\b`, 'i').test(body)),
+  // H-1 fix: .every — a contract listing all four severities must require all four,
+  // not any one. Spec lives in contract-format.md.
+  hasSeveritySections: (cArgs) => cArgs.severities.every((s) => new RegExp(`##\\s+(?:🔴|🟠|🟡|🔵)?\\s*${s}\\b`, 'i').test(body)),
   outputLengthMin: (cArgs) => body.length >= cArgs.min,
   outputLengthMax: (cArgs) => body.length <= cArgs.max,
   containsKeywords: (cArgs) => cArgs.keywords.every((k) => body.toLowerCase().includes(k.toLowerCase())),
-};
+});
 
-const antiPatternChecks = {
+const antiPatternChecks = Object.assign(Object.create(null), {
   noTextSimilarityToPriorRun: (cArgs) => {
     const priorDir = cArgs.priorRunDir || args['previous-run'];
     if (!priorDir || !fs.existsSync(priorDir)) return { pass: true, reason: 'no_prior_run' };
@@ -108,7 +113,9 @@ const antiPatternChecks = {
     return { pass: maxSim < (cArgs.threshold || 0.7), similarity: maxSim };
   },
   noTemplateRepetition: (cArgs) => {
-    const findings = (body.match(/^###\s+[^\n]+\n[\s\S]*?(?=^###|\Z)/gm) || []);
+    // \Z is not a JS regex metacharacter — with /i it matched lowercase 'z' in finding bodies.
+    // Use $(?![\s\S]) — true end-of-string regardless of /m flag.
+    const findings = (body.match(/^###\s+[^\n]+\n[\s\S]*?(?=^###|$(?![\s\S]))/gm) || []);
     if (findings.length < 2) return { pass: true, reason: 'too_few_findings' };
     const similarities = [];
     for (let i = 0; i < findings.length; i++) {
@@ -122,7 +129,10 @@ const antiPatternChecks = {
   },
   claimsHaveEvidence: (cArgs) => {
     const markers = (cArgs && cArgs.markers) || ['file:line', 'verified by', 'lines '];
-    const seriousSections = body.match(/##\s+(?:🔴|🟠)?\s*(CRITICAL|HIGH)\b[\s\S]*?(?=^##\s|\Z)/gim) || [];
+    // \Z fix: same as noTemplateRepetition above. The /i flag previously made \Z match lowercase z,
+    // truncating sections like "## CRITICAL\n### C-1: Prototype pollution via unsani[zed...]" before
+    // the file:line evidence could be scanned.
+    const seriousSections = body.match(/##\s+(?:🔴|🟠)?\s*(CRITICAL|HIGH)\b[\s\S]*?(?=^##\s|$(?![\s\S]))/gim) || [];
     if (seriousSections.length === 0) return { pass: true, reason: 'no_serious_findings' };
     for (const section of seriousSections) {
       // Empty/none sections (e.g., "None this run") are valid — no claims means nothing to evidence
@@ -161,7 +171,7 @@ const antiPatternChecks = {
     }
     return { pass: true };
   },
-};
+});
 
 const result = {
   agentId: contract.agentId,
@@ -240,14 +250,29 @@ if (!args['no-record']) {
   try {
     const recorderPath = path.join(__dirname, 'pattern-recorder.js');
     if (fs.existsSync(recorderPath)) {
-      spawnSync(process.execPath, [
+      // Identity may come from frontmatter (preferred — set at spawn time) or from a
+      // CLI flag (verifier wrapper / orchestrator override).
+      const identity = frontmatter.identity || args.identity || null;
+      // Skills actually invoked. v1: not derived from transcript yet — caller
+      // can pass --skills s1,s2 if known; future H.2 work pulls from JSONL.
+      const skills = args.skills || null;
+      const recorderArgs = [
         recorderPath, 'record',
         '--task-signature', `${contract.persona || 'unknown'}:${contract.agentId}`,
         '--agent-role', frontmatter.role || contract.role || 'actor',
         '--persona', contract.persona || 'unknown',
         '--verdict', verdict,
         '--findings-count', String(result.summary.findingsCount),
-      ], { stdio: 'inherit', timeout: 5000 });
+      ];
+      if (identity) recorderArgs.push('--identity', identity);
+      if (skills) recorderArgs.push('--skills', skills);
+      // Use spawn (not spawnSync) so the recorder's lock-acquisition wait does NOT
+      // block the verifier's exit — recorder is best-effort by design (see comment
+      // at the catch below). Mitigates the H-3 spin-wait CPU saturation surfaced by
+      // the chaos-20260502-060039 review.
+      const { spawn } = require('child_process');
+      const proc = spawn(process.execPath, recorderArgs, { stdio: 'ignore', detached: true });
+      proc.unref();
     }
   } catch { /* recorder is optional */ }
 }

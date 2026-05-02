@@ -2,6 +2,10 @@
   "agentId": "actor-confused-user",
   "persona": "02-confused-user",
   "role": "actor",
+  "skills": {
+    "required": [],
+    "recommended": []
+  },
   "budget": {
     "tokens": 25000,
     "extensible": true,
