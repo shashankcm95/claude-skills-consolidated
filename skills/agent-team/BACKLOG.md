@@ -98,19 +98,18 @@ E2E validated 5 probes covering all source paths + promise-mode skip + missing-t
 
 The flag is now resolved. SKILL.md's "triple contract" section accurately describes 3/3 implemented checks. Architect actor's chaos-20260502-060039 oversell finding is closed.
 
-### H.2.8 — On-demand budget extensions
+### H.2.8 — On-demand budget extensions — SHIPPED
 
-**Status**: documented in SKILL.md; not implemented.
+**Status**: shipped this turn. `scripts/agent-team/budget-tracker.js` with 5 subcommands; per-run state in `swarm/run-state/<run-id>/budgets.json` (gitignored). Closes the architect's "budget enforcement is fictional" finding from chaos-20260502-060039 — contract budget fields (`tokens`, `extensible`, `maxExtensions`, `extensionAmount`) are now actually enforced.
 
-**Scope**: New `scripts/agent-team/budget-tracker.js`:
-- Track per-spawn token usage (input + output)
-- Accept extension request from a spawned actor (mid-flight)
-- Orchestrator approve/deny
-- Per-run budget audit trail in run-state
+**E2E validated 7 probes**: init, manual record, transcript-extract record (sums input + output + cache_creation + cache_read), extend approve, extend deny when exhausted, run-level status, per-identity status with utilization%.
 
-**Why deferred**: cost control is nice-to-have but not blocking — the existing token budgets in contracts are advisory, and we haven't hit a real budget overrun in chaos runs. Becomes important when the toolkit is used by users with production-scale token bills.
+**Process note**: First phase shipped using the new git workflow — branched on `feat/phase-H.2.8-budget-extensions`, PR via `gh pr create`, merged to main with tag `phase-H.2.8` at the merge commit.
 
-**Estimate**: ~200 LoC + ~1.5hr.
+**Follow-up tasks**:
+- **Pre-flight allowance check before spawn**: orchestrator could call `budget-tracker status --identity X` before re-spawning a known-expensive identity to avoid mid-spawn extension churn. ~30 LoC convention update.
+- **Aggregate budget across run**: cap total per-run token spend (sum of all spawns); deny extensions when run-cap is approached even if per-spawn extensions remain. Useful for cost-controlled chaos runs. ~80 LoC.
+- **Auto-record from transcript at verifier time**: `contract-verifier.js` already has `--transcript`; could auto-call `budget-tracker record-from-transcript` after verification completes, removing one manual orchestrator step. ~40 LoC.
 
 ### H.2.9 — `chaos-test --pattern <name>` simulation runner
 
