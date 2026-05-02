@@ -51,7 +51,14 @@ Deferred work from prior phases, captured here so nothing important gets silentl
 
 **Dependencies**: H.2.2 (builder personas as the targets).
 
-**Estimate**: ~500 LoC + ~3hr.
+**Estimate**: ~500 LoC + ~3hr. — SHIPPED
+
+**Status**: shipped this turn. New `skills/tech-stack-analyzer/SKILL.md` (orchestrator skill, 7-step workflow with 2 user-gates) + `kb:hets/stack-skill-map` (12 stacks across 7 domains) + `/build-team` command. Patterns `tech-stack-analyzer` + `skill-bootstrapping` status `proposed → implementing`. E2E validated 6 probes covering KB resolution, skill scaffold, command existence, and skill-name cross-validation against persona contracts + marketplace.
+
+**Follow-up tasks** (deferred — pick up when first real `/build-team` invocation surfaces gaps):
+- **`/forge` internet-research mode** — current `/forge` authors locally; the skill-bootstrapping flow assumes internet research with per-claim source tracking. Estimate: ~150 LoC + design pass.
+- **Stack-skill-map auto-validation in CI** — `kb-resolver scan` could grep stack-skill-map skill names against persona contracts + marketplace, warn on broken references. Estimate: ~50 LoC.
+- **`tech-stack-analyzer` skill testing harness** — current E2E only validates scaffolding (KB resolves, skill exists). A real test would mock a user task → check the analyzer's plan output. Hard to write without invoking real LLM agents; defer until we run a real `/build-team` flow and capture the trace.
 
 ### H.2.6 — `invokesRequiredSkills` verifier check
 
