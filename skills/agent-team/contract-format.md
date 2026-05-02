@@ -15,6 +15,9 @@ Specification for `*.contract.json` files. These files define what an agent must
     "maxExtensions": 1,
     "extensionAmount": 20000
   },
+  // ENFORCEABLE as of H.2.8 via scripts/agent-team/budget-tracker.js.
+  // Read by `budget-tracker extend --identity X` to decide approve/deny.
+  // Prior to H.2.8 these fields were documentation-only (architect finding).
   "functional": [
     {
       "id": "F1",
