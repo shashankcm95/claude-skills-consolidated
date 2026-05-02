@@ -36,7 +36,9 @@
     { "id": "F3", "check": "minFindings", "args": { "min": 2 }, "required": true },
     { "id": "F4", "check": "hasFileCitations", "args": { "min": 4 }, "required": true },
     { "id": "F5", "check": "hasSeveritySections", "args": { "severities": ["CRITICAL", "HIGH", "MEDIUM", "LOW"] }, "required": true },
-    { "id": "F6", "check": "containsKeywords", "args": { "keywords": ["react"] }, "required": false }
+    { "id": "F6", "check": "containsKeywords", "args": { "keywords": ["react"] }, "required": false },
+    { "id": "F7", "check": "noUnrolledLoops", "args": { "maxRepetitions": 5 }, "required": true },
+    { "id": "F8", "check": "noExcessiveNesting", "args": { "maxDepth": 4 }, "required": true }
   ],
   "antiPattern": [
     { "id": "A1", "check": "claimsHaveEvidence", "severity": "fail" },
