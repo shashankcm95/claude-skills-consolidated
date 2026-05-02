@@ -76,6 +76,28 @@ function countFileCitations(text) {
   return matches.length;
 }
 
+// H.2.6 — extract Skill tool invocations from an actor's transcript JSONL.
+// Each line is a Claude Code transcript message. We look for assistant messages
+// whose content blocks include `{ type: 'tool_use', name: 'Skill', input: { skill: '<name>' } }`.
+// Returns a Set of skill names invoked.
+function extractSkillsFromTranscript(transcriptPath) {
+  const invokedSkills = new Set();
+  const lines = fs.readFileSync(transcriptPath, 'utf8').split('\n').filter(Boolean);
+  for (const line of lines) {
+    let msg;
+    try { msg = JSON.parse(line); } catch { continue; }
+    const content = msg && msg.message && msg.message.content;
+    if (!Array.isArray(content)) continue;
+    for (const block of content) {
+      if (block && block.type === 'tool_use' && block.name === 'Skill') {
+        const skillName = block.input && block.input.skill;
+        if (skillName) invokedSkills.add(skillName);
+      }
+    }
+  }
+  return invokedSkills;
+}
+
 function jaccard(a, b) {
   const aw = new Set(a.toLowerCase().split(/\W+/).filter(Boolean));
   const bw = new Set(b.toLowerCase().split(/\W+/).filter(Boolean));
@@ -104,14 +126,50 @@ const functionalChecks = Object.assign(Object.create(null), {
   // For challenger contracts (asymmetric-challenger pattern). Counts
   // ### CHALLENGE-N headings; each represents a substantive disagreement
   // with the implementer's output. Functional check (must produce ≥N
-  // challenges) — distinct from anti-pattern checks which avoid bad
-  // behaviors. Returns boolean for compatibility with the functional-check
-  // dispatcher (which expects a bool, not the {pass, ...} object shape
-  // antiPattern checks return).
+  // challenges).
   noEmptyChallengeSection: (cArgs) => {
     const challenges = body.match(/^###\s+CHALLENGE-?\d+/gim) || [];
     const minChallenges = (cArgs && cArgs.min) || 1;
     return challenges.length >= minChallenges;
+  },
+  // H.2.6 — verify the actor invoked the required skills from its contract.
+  // Source preference: --transcript (truth from JSONL) > --skills (manual
+  // passthrough). When neither is supplied, returns pass=true with reason —
+  // mirrors noTextSimilarityToPriorRun's "no source available" semantics.
+  // Skills with skill_status: 'not-yet-authored' are skipped (promise mode —
+  // bootstrap path applies; verifying invocation pre-bootstrap is meaningless).
+  invokesRequiredSkills: (cArgs) => {
+    const transcriptPath = (cArgs && cArgs.transcriptPath) || args.transcript;
+    let invokedSkills;
+    let source;
+    if (transcriptPath) {
+      if (!fs.existsSync(transcriptPath)) {
+        return { pass: false, reason: 'transcript_not_found', path: transcriptPath };
+      }
+      invokedSkills = extractSkillsFromTranscript(transcriptPath);
+      source = 'transcript';
+    } else if (args.skills) {
+      invokedSkills = new Set(args.skills.split(',').map((s) => s.trim()).filter(Boolean));
+      source = 'cli-flag';
+    } else {
+      return { pass: true, reason: 'no_skills_source_supplied', source: 'none' };
+    }
+    const required = (contract.skills && contract.skills.required) || [];
+    const skillStatus = (contract.skills && contract.skills.skill_status) || {};
+    const missing = [];
+    const skipped = [];
+    for (const skill of required) {
+      if (skillStatus[skill] === 'not-yet-authored') { skipped.push(skill); continue; }
+      if (!invokedSkills.has(skill)) missing.push(skill);
+    }
+    return {
+      pass: missing.length === 0,
+      source,
+      invokedSkills: Array.from(invokedSkills),
+      missingRequired: missing,
+      skippedPromiseMode: skipped,
+      requiredCount: required.length,
+    };
   },
 });
 
@@ -226,8 +284,17 @@ for (const check of contract.functional || []) {
     continue;
   }
   try {
-    const passed = fn(check.args || {});
-    result.functional[check.id] = { check: check.check, status: passed ? 'pass' : 'fail' };
+    // H.2.6 — functional checks now support BOTH bool and rich {pass, ...meta}
+    // returns, mirroring antiPattern checks. Backwards-compatible: existing
+    // bool-returning checks continue to work; new rich checks (e.g.,
+    // invokesRequiredSkills) carry per-check metadata into the result.
+    const ret = fn(check.args || {});
+    const passed = typeof ret === 'object' && ret !== null ? ret.pass : ret;
+    result.functional[check.id] = {
+      check: check.check,
+      status: passed ? 'pass' : 'fail',
+      ...(typeof ret === 'object' && ret !== null ? { ...ret, pass: undefined } : {}),
+    };
     if (!passed && check.required !== false) functionalFailures++;
   } catch (err) {
     result.functional[check.id] = { check: check.check, status: 'error', error: err.message };

@@ -60,19 +60,18 @@ Deferred work from prior phases, captured here so nothing important gets silentl
 - **Stack-skill-map auto-validation in CI** — `kb-resolver scan` could grep stack-skill-map skill names against persona contracts + marketplace, warn on broken references. Estimate: ~50 LoC.
 - **`tech-stack-analyzer` skill testing harness** — current E2E only validates scaffolding (KB resolves, skill exists). A real test would mock a user task → check the analyzer's plan output. Hard to write without invoking real LLM agents; defer until we run a real `/build-team` flow and capture the trace.
 
-### H.2.6 — `invokesRequiredSkills` verifier check
+### H.2.6 — `invokesRequiredSkills` verifier check — SHIPPED
 
-**Status**: documented in `persona-skills-mapping.md` pattern; not implemented.
+**Status**: shipped this turn. New functional check + `--transcript <path>` flag + functional-dispatcher extension to support rich returns + persona-skills-mapping pattern promoted to `active`.
 
-**Scope**: New anti-pattern check in `contract-verifier.js` that:
-1. Reads the actor's transcript JSONL (parent passes the path)
-2. Scans for `Skill` tool invocations
-3. Each `skills.required` entry must appear ≥1 time (skip if marked `not-yet-authored`)
-4. Severity: `fail` for required-skill non-invocation; warn for recommended
+**Implementation**: `extractSkillsFromTranscript(transcriptPath)` parses each JSONL line, finds `tool_use` blocks with `name === 'Skill'`, collects skill names from `input.skill`. Returns Set. Check cross-checks against `contract.skills.required`, skips `skill_status === 'not-yet-authored'` entries (promise mode). Source preference: `--transcript` > `--skills` flag > graceful pass (`reason: 'no_skills_source_supplied'`).
 
-**Dependencies**: actor transcript path discovery (need a convention for where the parent finds the sub-agent's transcript — likely `~/.claude/projects/<project-id>/<task-uuid>.jsonl`).
+E2E validated 5 probes covering all source paths + promise-mode skip + missing-transcript-file fail.
 
-**Estimate**: ~200 LoC + ~1hr.
+**Follow-up tasks**:
+- **Auto-discover transcript path**: parent agent could pass `--transcript-from-agent-id <id>` and the verifier resolves to `~/.claude/projects/<project>/<agent-id>.output` automatically. Currently the orchestrator must construct the path. Estimate: ~30 LoC.
+- **Recommended-skill warning** (not just required): if a recommended skill that IS available in the catalog isn't invoked, emit a warning (not a fail). Useful signal for "the actor could have done better". Estimate: ~40 LoC.
+- **Skill-invocation count tracking**: extend the check to record HOW MANY times each skill was invoked, surface to identity store via `--forward-skills-with-counts` so trust accumulates per `(persona, skill, count)` tuple instead of per `(persona, skill)`. Useful for the H.2.4 trust-tiered policy refinement. Estimate: ~50 LoC.
 
 ## Phase H.2 — explicitly deferred (added to backlog per user direction)
 

@@ -80,6 +80,7 @@ The verifier check `invokesRequiredSkills` (planned for H.2.6) will skip enforce
 | `outputLengthMax` | Output body is at most N chars | `{ max: 50000 }` |
 | `containsKeywords` | Output contains specific keywords | `{ keywords: ["verified", "evidence"] }` |
 | `noEmptyChallengeSection` | Counts `### CHALLENGE-N` headings; ≥`min` required. For challenger contracts (asymmetric-challenger pattern). | `{ min: 1 }` |
+| `invokesRequiredSkills` | Reads actor transcript JSONL (or falls back to `--skills` CLI flag), verifies each `skills.required` was invoked via `Skill` tool. Skips skills with `skill_status: 'not-yet-authored'` (promise mode). Returns rich result `{ pass, source, invokedSkills, missingRequired, skippedPromiseMode, requiredCount }`. | none — auto-reads `--transcript` or `--skills` |
 
 ## Anti-pattern checks
 
@@ -103,6 +104,7 @@ The verifier check `invokesRequiredSkills` (planned for H.2.6) will skip enforce
 | `--identity <persona.name>` | Per-identity recording (forwards to agent-identity.js) | H.2-bridge |
 | `--skills <s1,s2,...>` | Skills the actor invoked (forwards to recorder) | H.2-bridge |
 | `--skip-checks <ids-or-names>` | Comma-separated `check.id` (e.g. `F4,A2`) or `check.check` (e.g. `noTextSimilarityToPriorRun`) to skip. Skipped checks record `status: 'skipped'`. Use with `agent-identity recommend-verification` output. | H.2.4 |
+| `--transcript <path>` | Path to actor's transcript JSONL. Source for `invokesRequiredSkills` check. If omitted, that check falls back to `--skills` flag value, then to graceful no_skills_source_supplied pass. | H.2.6 |
 
 ## Verdict outcomes
 

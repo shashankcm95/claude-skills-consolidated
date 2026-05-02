@@ -1,6 +1,6 @@
 ---
 pattern: persona-skills-mapping
-status: implementing
+status: active
 intent: One-to-many mapping of personas to specialized skills.
 related: [agent-identity-reputation, hets, prompt-distillation]
 ---
