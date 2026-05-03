@@ -2,7 +2,7 @@
 pattern: persona-skills-mapping
 status: active
 intent: One-to-many mapping of personas to specialized skills.
-related: [agent-identity-reputation, hets, prompt-distillation, skill-bootstrapping, structural-code-review, tech-stack-analyzer]
+related: [agent-identity-reputation, hets, prompt-distillation, skill-bootstrapping, structural-code-review, tech-stack-analyzer, kb-scope-enforcement]
 ---
 
 ## Summary

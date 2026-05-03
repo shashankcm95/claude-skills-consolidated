@@ -2,7 +2,7 @@
 pattern: content-addressed-refs
 status: implementing
 intent: Reference docs by content-addressed pointer; same content always produces same hash; cross-project reuse is free.
-related: [shared-knowledge-base, prompt-distillation]
+related: [shared-knowledge-base, prompt-distillation, kb-scope-enforcement]
 ---
 
 ## Summary

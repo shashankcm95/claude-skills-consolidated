@@ -98,6 +98,45 @@ function extractSkillsFromTranscript(transcriptPath) {
   return invokedSkills;
 }
 
+// H.4.0 — extract KB document reads from an actor's transcript JSONL.
+// We detect three invocation shapes that an actor would use to consume a
+// declared kb_scope entry:
+//   1. Bash: `kb-resolver(.js)? cat <id>`           — bare or kb:-prefixed id
+//   2. Bash: `kb-resolver(.js)? resolve kb:<id>[@<short-hash>]`
+//   3. Read: file_path matching `skills/agent-team/kb/<domain>/<doc>.md`
+// Returns a Set of normalized `kb:<domain>/<doc>` strings (matches the
+// canonical form used in contract.kb_scope.default arrays).
+function extractKbReadsFromTranscript(transcriptPath) {
+  const kbReads = new Set();
+  const lines = fs.readFileSync(transcriptPath, 'utf8').split('\n').filter(Boolean);
+  for (const line of lines) {
+    let msg;
+    try { msg = JSON.parse(line); } catch { continue; }
+    const content = msg && msg.message && msg.message.content;
+    if (!Array.isArray(content)) continue;
+    for (const block of content) {
+      if (!block || block.type !== 'tool_use') continue;
+      const input = block.input || {};
+      if (block.name === 'Bash' && typeof input.command === 'string') {
+        const cmd = input.command;
+        // `kb-resolver cat <id>` — bare id (no kb: prefix) per cmdCat signature
+        for (const m of cmd.matchAll(/kb-resolver(?:\.js)?\s+cat\s+(?:kb:)?([a-zA-Z][\w./-]+)/g)) {
+          kbReads.add('kb:' + m[1]);
+        }
+        // `kb-resolver resolve kb:<id>[@<hash>]` — kb: prefixed
+        for (const m of cmd.matchAll(/kb-resolver(?:\.js)?\s+resolve\s+(kb:[\w./-]+?)(?:@[a-f0-9]+)?(?=\s|$)/g)) {
+          kbReads.add(m[1]);
+        }
+      }
+      if (block.name === 'Read' && typeof input.file_path === 'string') {
+        const m = input.file_path.match(/skills\/agent-team\/kb\/([\w-]+\/[\w.-]+?)\.md$/);
+        if (m) kbReads.add('kb:' + m[1]);
+      }
+    }
+  }
+  return kbReads;
+}
+
 function jaccard(a, b) {
   const aw = new Set(a.toLowerCase().split(/\W+/).filter(Boolean));
   const bw = new Set(b.toLowerCase().split(/\W+/).filter(Boolean));
@@ -236,6 +275,37 @@ const functionalChecks = Object.assign(Object.create(null), {
       missingRequired: missing,
       skippedPromiseMode: skipped,
       requiredCount: required.length,
+    };
+  },
+  // H.4.0 — verify the actor read every KB doc declared in contract.kb_scope.default.
+  // Closes the long-standing CS-1 + CS-2 architect finding "kb_scope is loaded into
+  // spawn-time prompts but never enforced at verify-time", same shape as the H.2.6
+  // invokesRequiredSkills precedent. Source preference: --transcript (truth from
+  // JSONL) ONLY — there's no manual --kb-reads CLI fallback because the goal of this
+  // check is to prevent self-reporting drift. Graceful pass when no transcript is
+  // supplied (mirrors invokesRequiredSkills semantics) so spawn-time invocations
+  // continue to work; enforcement triggers only when a transcript is fed in.
+  kb_scope_consumed: (cArgs) => {
+    const transcriptPath = (cArgs && cArgs.transcriptPath) || args.transcript;
+    const kbScope = (contract.kb_scope && contract.kb_scope.default) || [];
+    if (kbScope.length === 0) {
+      return { pass: true, reason: 'no_kb_scope_declared', source: 'none' };
+    }
+    if (!transcriptPath) {
+      return { pass: true, reason: 'no_transcript_supplied', source: 'none', declared: kbScope.length };
+    }
+    if (!fs.existsSync(transcriptPath)) {
+      return { pass: false, reason: 'transcript_not_found', path: transcriptPath };
+    }
+    const kbReads = extractKbReadsFromTranscript(transcriptPath);
+    const missing = kbScope.filter((id) => !kbReads.has(id));
+    return {
+      pass: missing.length === 0,
+      source: 'transcript',
+      declared: kbScope.length,
+      consumed: kbScope.length - missing.length,
+      kbReadsObserved: Array.from(kbReads),
+      missingKbScope: missing,
     };
   },
 });

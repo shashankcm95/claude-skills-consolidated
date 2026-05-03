@@ -2,7 +2,7 @@
 pattern: shared-knowledge-base
 status: implementing
 intent: One source of truth for docs all agents in a run reference; mid-run edits do not affect in-flight agents.
-related: [content-addressed-refs, prompt-distillation, hets, skill-bootstrapping, tech-stack-analyzer]
+related: [content-addressed-refs, prompt-distillation, hets, skill-bootstrapping, tech-stack-analyzer, kb-scope-enforcement]
 ---
 
 ## Summary

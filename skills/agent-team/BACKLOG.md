@@ -2,6 +2,23 @@
 
 Deferred work from prior phases, captured here so nothing important gets silently dropped. Each entry: scope, rationale, dependencies, rough estimate.
 
+## Phase H.4 — kb_scope enforcement — SHIPPED as H.4.0
+
+**Status**: shipped. Closes the #1 unmoved finding from both CS-1 and CS-2 architects: `kb_scope` was loaded into spawn-time prompt blocks but never enforced at verify-time. Same shape as H.2.6's `invokesRequiredSkills` precedent — contract field → transcript scan → pass/fail.
+
+What landed:
+- New `kb_scope_consumed` functional check in `contract-verifier.js` + `extractKbReadsFromTranscript` helper
+- Detects 3 KB-read invocation shapes (Bash `kb-resolver cat`, Bash `kb-resolver resolve kb:<id>`, Read of `kb/<id>.md`); hash-pinned refs strip `@hash` for matching
+- Rich result: `{pass, source, declared, consumed, kbReadsObserved, missingKbScope}`
+- 8 contracts opted in at `required: true`: 7 builders (06-12) F9, challenger F6
+- Graceful pass semantics for no-transcript / no-scope-declared (matches `invokesRequiredSkills`)
+- New pattern doc `patterns/kb-scope-enforcement.md` (status: `active`)
+- 5 E2E probes pass; contracts-validate 0 violations
+
+**H.4.x follow-ups (not yet scoped)**:
+- Apply the same template to other "declared but unenforced" contract fields if any surface (challenger's `_doc` field, `fallbackAcceptable` arrays — both informational today; would they benefit from enforcement?)
+- Auditor contracts (01-05) currently have no `kb_scope` declared. If they should — declare + opt them in. Architect's "single source of truth" principle suggests yes.
+
 ## Phase H.3 — CS-2 regression bundle — SHIPPED as H.3.6
 
 **Status**: shipped. 5 fixes for the 5 regressions surfaced by the second meta-validation chaos run (chaos-20260503-154327-cs2):

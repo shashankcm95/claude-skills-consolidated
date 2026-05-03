@@ -24,6 +24,7 @@ This dual form is itself the [Prompt Distillation](prompt-distillation.md) patte
 | 10 | [Skill Bootstrapping](skill-bootstrapping.md) | implementing | Missing skill → user-gated forge invocation → review → catalog admission. |
 | 11 | [Tech-Stack Analyzer](tech-stack-analyzer.md) | implementing | Parse user task → infer stack → map to skills → produce a plan the user can redirect. |
 | 12 | [Structural Code Review](structural-code-review.md) | implementing | Third leg of "triple contract" — `noUnrolledLoops` + `noExcessiveNesting` checks against code blocks in actor findings. Catches the 1000-zeros family. |
+| 13 | [KB-Scope Enforcement](kb-scope-enforcement.md) | active | Verify actor consumed every KB doc declared in `contract.kb_scope.default` by transcript scan; closes the long-standing CS-1+CS-2 architect "declare-without-read" finding. |
 
 **Status legend:** `active` = code in production; `implementing` = code being written this phase; `proposed` = designed but not yet implemented; `observed` = pattern recurred in practice without intentional design.
 

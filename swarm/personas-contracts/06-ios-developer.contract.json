@@ -37,7 +37,8 @@
     { "id": "F5", "check": "hasSeveritySections", "args": { "severities": ["CRITICAL", "HIGH", "MEDIUM", "LOW"] }, "required": true },
     { "id": "F6", "check": "containsKeywords", "args": { "keywords": ["swift"] }, "required": false },
     { "id": "F7", "check": "noUnrolledLoops", "args": { "maxRepetitions": 5 }, "required": true },
-    { "id": "F8", "check": "noExcessiveNesting", "args": { "maxDepth": 4 }, "required": true }
+    { "id": "F8", "check": "noExcessiveNesting", "args": { "maxDepth": 4 }, "required": true },
+    { "id": "F9", "check": "kb_scope_consumed", "required": true }
   ],
   "antiPattern": [
     { "id": "A1", "check": "claimsHaveEvidence", "severity": "fail" },
