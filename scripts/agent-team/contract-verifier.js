@@ -387,7 +387,16 @@ for (const check of contract.antiPattern || []) {
   }
   const fn = antiPatternChecks[check.check];
   if (!fn) {
+    // H.3.6 (CS-2 architect.mira HIGH): symmetrize H.3.1's functional-path
+    // unknown_check fix to the antiPattern dispatch. Without this, an
+    // antiPattern referencing a non-existent check name silently passes —
+    // identical bypass mechanism to the H.3.1 CRIT-1 just on a different loop.
+    // Severity convention matches the per-check failure path below: 'fail'
+    // increments antiPatternFailures; everything else (default 'warn')
+    // increments antiPatternWarns.
     result.antiPattern[check.id] = { check: check.check, status: 'unknown_check' };
+    if (check.severity === 'fail') antiPatternFailures++;
+    else antiPatternWarns++;
     continue;
   }
   try {

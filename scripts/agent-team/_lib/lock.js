@@ -32,16 +32,27 @@ function acquireLock(lockPath, opts) {
       return true;
     } catch {
       // Stale lock recovery: if the locking pid is gone, take it over.
+      // H.3.6 (CS-2 code-reviewer.jade C-1): the prior version only checked
+      // `pid !== process.pid` and skipped cleanup when the lock holds the
+      // current PID — but that's exactly the case where the prior incarnation
+      // crashed and left a same-PID orphan; without unlink, the process
+      // deadlocks against itself until timeout. Now: if pid === process.pid,
+      // treat as stale (we'd never legitimately hold our own lock through
+      // a fresh withLock() call) and reclaim.
       try {
         const pid = parseInt(fs.readFileSync(lockPath, 'utf8'), 10);
-        if (pid && !Number.isNaN(pid) && pid !== process.pid) {
-          try { process.kill(pid, 0); } // throws if pid is gone
-          catch { try { fs.unlinkSync(lockPath); } catch {} continue; }
-        } else if (Number.isNaN(pid)) {
+        if (Number.isNaN(pid) || !pid) {
           // Garbage in lock file → assume corrupt + reclaim
           try { fs.unlinkSync(lockPath); } catch {}
           continue;
         }
+        if (pid === process.pid) {
+          // Self-PID orphan from a prior incarnation — reclaim
+          try { fs.unlinkSync(lockPath); } catch {}
+          continue;
+        }
+        try { process.kill(pid, 0); } // throws if pid is gone
+        catch { try { fs.unlinkSync(lockPath); } catch {} continue; }
       } catch { /* lock disappeared between check and read */ }
       const end = Date.now() + sleepMs;
       while (Date.now() < end) {} // brief busy-wait

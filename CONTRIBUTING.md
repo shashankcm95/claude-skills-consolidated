@@ -103,7 +103,11 @@ After CONTRIBUTING.md adoption, all prior phase commits were tagged in place (an
 | `phase-H.2.9` | `c3e3256` | chaos-test --pattern simulation runner |
 | `phase-H.3.0` | `6397b4e` | contracts-validate.js |
 | `phase-H.3.1` | `7a9504b` | Quick-wins bundle (5 fixes) |
-| `phase-H.3.2` | (TBD) | Shared withLock + kb-resolver path traversal |
+| `phase-H.3.2` | `e99ca90` | Shared withLock + kb-resolver path traversal |
+| `phase-H.3.3` | `47b4533` | install.sh sync + post-phase install convention |
+| `phase-H.3.4` | `03c4e5b` | Structural checks opt-in (7 builder contracts) |
+| `phase-H.3.5` | `a7b3f19` | Resolve all 29 contracts-validate violations |
+| `phase-H.3.6` | (TBD) | CS-2 regression bundle (5 fixes) |
 
 `d166add` (README refresh through H.2.4) and `90b87ac` (chat-scan BACKLOG additions) were doc-only commits — no tags (matches "trivial docs allowed direct on main" rule).
 

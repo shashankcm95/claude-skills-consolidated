@@ -363,7 +363,17 @@ function parseArgs(argv) {
 const args = parseArgs(process.argv.slice(2));
 
 if (args['list-validators']) {
-  console.log(JSON.stringify({ validators: Object.keys(validators) }, null, 2));
+  // H.3.6 (CS-2 confused-user-alex MEDIUM): respect --json flag for parity with
+  // the main report path. Default human-readable; --json emits machine output.
+  const names = Object.keys(validators);
+  if (args.json) {
+    console.log(JSON.stringify({ validators: names }, null, 2));
+  } else {
+    console.log(`Available validators (${names.length}):`);
+    for (const name of names) console.log(`  • ${name}`);
+    console.log('');
+    console.log('Usage: contracts-validate [--scope name1,name2] [--json]');
+  }
   process.exit(0);
 }
 

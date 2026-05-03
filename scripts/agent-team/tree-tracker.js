@@ -40,21 +40,34 @@ function load(runId) {
   catch { return { runId, root: null, nodes: {}, createdAt: new Date().toISOString() }; }
 }
 
-// H.3.2 (CS-1 code-reviewer X-3): RMW race possible when multiple actors
-// spawn concurrently from a chaos-test super-agent. Lock the read-modify-write.
-function save(runId, tree) {
+// H.3.6 (CS-2 code-reviewer.jade BLOCK): the H.3.2 fix wrapped only the WRITE
+// in withLock — but cmdSpawn / cmdComplete do load() → modify → save(), so
+// concurrent callers all read pre-modification state, then serialize their
+// writes; last writer wins, others' updates lost. Same race the H.3.2
+// own-validation probe 3 explicitly proved fatal for budget-tracker; not
+// back-applied to tree-tracker until now.
+//
+// Fix mirrors budget-tracker.js: writeTreeAtomic is a plain atomic write
+// (tmp + rename, no lock); withTreeLock wraps the WHOLE RMW at the callsite.
+function writeTreeAtomic(runId, tree) {
   const p = treePath(runId);
   fs.mkdirSync(path.dirname(p), { recursive: true });
-  withLock(p + '.lock', () => {
-    const tmp = p + '.tmp.' + process.pid;
-    try {
-      fs.writeFileSync(tmp, JSON.stringify(tree, null, 2));
-      fs.renameSync(tmp, p);
-    } catch (err) {
-      try { fs.unlinkSync(tmp); } catch { /* ignore */ }
-      throw err;
-    }
-  });
+  const tmp = p + '.tmp.' + process.pid;
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(tree, null, 2));
+    fs.renameSync(tmp, p);
+  } catch (err) {
+    try { fs.unlinkSync(tmp); } catch { /* ignore */ }
+    throw err;
+  }
+}
+
+// 15s timeout (vs default 3s) to match budget-tracker — chaos-test convention
+// fires N concurrent spawn calls and busy-wait fairness is poor under contention.
+function withTreeLock(runId, fn) {
+  const lockPath = treePath(runId) + '.lock';
+  fs.mkdirSync(path.dirname(lockPath), { recursive: true });
+  return withLock(lockPath, fn, { maxWaitMs: 15000 });
 }
 
 function parseArgs(argv) {
@@ -75,52 +88,60 @@ function cmdSpawn(args) {
     console.error('Usage: spawn --run-id X --parent P --child C --task "..." --role R [--max-depth N]');
     process.exit(1);
   }
-  // H.3.1 (CS-1 architect HIGH, persistent from chaos-20260502-060039):
-  // max_depth enforcement. SKILL.md documents max_depth=3 invariant; without
-  // this guard, a hostile or buggy spawner can create depth-7+ nodes.
-  // CS-1 architect: "ZERO progress in 9 sub-phases". 3 lines now.
-  const maxDepth = parseInt(args['max-depth'] || '3', 10);
-  const tree = load(args['run-id']);
-  if (args.parent && tree.nodes[args.parent]) {
-    const parentDepth = depthOf(args.parent, tree);
-    if (parentDepth >= 0 && parentDepth + 1 > maxDepth) {
-      console.error(`Error: spawn would exceed max_depth=${maxDepth} (parent depth=${parentDepth}, child would be at depth=${parentDepth + 1}). Refusing.`);
-      process.exit(1);
-    }
-  }
-  // CS-1 code-reviewer C-2: cmdSpawn allows --child === --parent producing a self-cycle.
-  // depthOf catches the symptom (returns -1) but the bug is upstream.
+  // CS-1 code-reviewer C-2: validate args BEFORE entering the lock — these are
+  // pure arg checks, no need to hold the lock for them.
   if (args.parent && args.parent === args.child) {
     console.error(`Error: --child cannot equal --parent ("${args.child}"). Refusing self-cycle spawn.`);
     process.exit(1);
   }
-  // M-2 fix (H.2.1): warn (don't silently overwrite) on duplicate spawn.
-  // Audit trail is the whole point of tree.json — losing prior status / completedAt /
-  // children silently is the failure mode chaos-20260502-060039 flagged.
-  if (tree.nodes[args.child]) {
-    const existing = tree.nodes[args.child];
-    console.error(`Warning: spawn collision for "${args.child}" (existing status: ${existing.status}, spawnedAt: ${existing.spawnedAt}). Preserving prior children list; updating other fields.`);
-  }
-  const existingChildren = tree.nodes[args.child]?.children || [];
-  const node = {
-    id: args.child,
-    parent: args.parent || null,
-    role: args.role || 'actor',
-    task: args.task || '',
-    status: 'pending',
-    spawnedAt: new Date().toISOString(),
-    completedAt: null,
-    children: existingChildren,
-  };
-  tree.nodes[args.child] = node;
-  if (args.parent && tree.nodes[args.parent]) {
-    if (!tree.nodes[args.parent].children.includes(args.child)) {
-      tree.nodes[args.parent].children.push(args.child);
+  const maxDepth = parseInt(args['max-depth'] || '3', 10);
+
+  // H.3.6 (CS-2 code-reviewer.jade BLOCK): wrap the WHOLE RMW in withTreeLock.
+  // Previously load() + modify + save() were independent, so concurrent spawns
+  // (typical chaos-test workload) all read pre-spawn state, then last writer
+  // wins — losing siblings, parent.children entries, and depth checks.
+  let result;
+  withTreeLock(args['run-id'], () => {
+    const tree = load(args['run-id']);
+    // H.3.1 (CS-1 architect HIGH): max_depth enforcement inside the lock so
+    // depth check + child insert are atomic w.r.t. concurrent inserts that
+    // could change the parent chain underneath us.
+    if (args.parent && tree.nodes[args.parent]) {
+      const parentDepth = depthOf(args.parent, tree);
+      if (parentDepth >= 0 && parentDepth + 1 > maxDepth) {
+        console.error(`Error: spawn would exceed max_depth=${maxDepth} (parent depth=${parentDepth}, child would be at depth=${parentDepth + 1}). Refusing.`);
+        process.exit(1);
+      }
     }
-  }
-  if (!tree.root || !args.parent) tree.root = args.child;
-  save(args['run-id'], tree);
-  console.log(JSON.stringify({ action: 'spawned', node: args.child, parent: args.parent || null }, null, 2));
+    // M-2 fix (H.2.1): warn (don't silently overwrite) on duplicate spawn.
+    // Audit trail is the whole point of tree.json — losing prior status / completedAt /
+    // children silently is the failure mode chaos-20260502-060039 flagged.
+    if (tree.nodes[args.child]) {
+      const existing = tree.nodes[args.child];
+      console.error(`Warning: spawn collision for "${args.child}" (existing status: ${existing.status}, spawnedAt: ${existing.spawnedAt}). Preserving prior children list; updating other fields.`);
+    }
+    const existingChildren = tree.nodes[args.child]?.children || [];
+    const node = {
+      id: args.child,
+      parent: args.parent || null,
+      role: args.role || 'actor',
+      task: args.task || '',
+      status: 'pending',
+      spawnedAt: new Date().toISOString(),
+      completedAt: null,
+      children: existingChildren,
+    };
+    tree.nodes[args.child] = node;
+    if (args.parent && tree.nodes[args.parent]) {
+      if (!tree.nodes[args.parent].children.includes(args.child)) {
+        tree.nodes[args.parent].children.push(args.child);
+      }
+    }
+    if (!tree.root || !args.parent) tree.root = args.child;
+    writeTreeAtomic(args['run-id'], tree);
+    result = { action: 'spawned', node: args.child, parent: args.parent || null };
+  });
+  console.log(JSON.stringify(result, null, 2));
 }
 
 function cmdComplete(args) {
@@ -128,16 +149,23 @@ function cmdComplete(args) {
     console.error('Usage: complete --run-id X --node N --status pass|partial|fail');
     process.exit(1);
   }
-  const tree = load(args['run-id']);
-  const node = tree.nodes[args.node];
-  if (!node) {
-    console.error(`Node not found: ${args.node}`);
-    process.exit(1);
-  }
-  node.status = args.status;
-  node.completedAt = new Date().toISOString();
-  save(args['run-id'], tree);
-  console.log(JSON.stringify({ action: 'completed', node: args.node, status: args.status }, null, 2));
+  // H.3.6 (CS-2 code-reviewer.jade BLOCK): wrap RMW in withTreeLock so the
+  // complete event isn't lost when a concurrent spawn writes between our
+  // load() and save().
+  let result;
+  withTreeLock(args['run-id'], () => {
+    const tree = load(args['run-id']);
+    const node = tree.nodes[args.node];
+    if (!node) {
+      console.error(`Node not found: ${args.node}`);
+      process.exit(1);
+    }
+    node.status = args.status;
+    node.completedAt = new Date().toISOString();
+    writeTreeAtomic(args['run-id'], tree);
+    result = { action: 'completed', node: args.node, status: args.status };
+  });
+  console.log(JSON.stringify(result, null, 2));
 }
 
 function bfs(tree) {

@@ -2,6 +2,23 @@
 
 Deferred work from prior phases, captured here so nothing important gets silently dropped. Each entry: scope, rationale, dependencies, rough estimate.
 
+## Phase H.3 — CS-2 regression bundle — SHIPPED as H.3.6
+
+**Status**: shipped. 5 fixes for the 5 regressions surfaced by the second meta-validation chaos run (chaos-20260503-154327-cs2):
+
+1. **`_lib/lock.js` self-PID deadlock** (CS-2 hacker.ren CRIT-1 + code-reviewer.jade C-1, convergent finding) — prior code's `pid !== process.pid` skip-cleanup branch deadlocked the process against its own crashed-prior-incarnation orphan until 3s timeout. Now: same-PID lock files reclaim immediately (a fresh `withLock()` call cannot legitimately be holding its own lock); also handles garbage-PID files via NaN guard.
+2. **`tree-tracker.js` whole-RMW lock back-apply** (CS-2 code-reviewer.jade BLOCK) — H.3.2 fix wrapped only the WRITE in withLock, but `cmdSpawn` + `cmdComplete` do load→modify→save independently. Same race that H.3.2's own-validation probe 3 explicitly proved fatal in budget-tracker; not back-applied to tree-tracker until now. Refactored `save()` into plain `writeTreeAtomic` + `withTreeLock` helper; both callsites wrap the whole RMW. 15s timeout matches budget-tracker.
+3. **`contract-verifier.js` antiPattern unknown_check** (CS-2 architect.mira HIGH, 3-line symmetry miss) — H.3.1 fixed the FUNCTIONAL path but didn't mirror to antiPattern dispatch. Symmetric fix: `severity === 'fail'` → `antiPatternFailures++`; else → `antiPatternWarns++`.
+4. **`kb-resolver.js` symlink escape** (CS-2 hacker.ren CRIT-2) — H.3.2 lexical check is symlink-blind. Added `fs.realpathSync` second-pass that canonicalizes both candidate + KB_BASE then re-checks boundary.
+5. **`contracts-validate.js --list-validators` human-mode parity** (CS-2 confused-user-alex MEDIUM) — `--list-validators` now respects `--json` flag; default human-readable.
+
+E2E validated all 5 probes + kb-resolver legit-read regression check passed. Sync to `~/.claude/scripts/agent-team/` parity verified.
+
+**Patterns surfaced for promotion**:
+- **fix-class-not-instance** — when fixing a known anti-pattern, grep sibling files for the same shape. H.3.6's existence is the proof: CS-2 caught that H.3.2 fixed the RMW race in budget-tracker but didn't back-apply to immediate-adjacent tree-tracker.
+- **own-validation routinely catches the bug your fix shipped with** — H.2.1 `[a-z]{1,4}`, H.2.7 closing-brace false-positive, H.2.9 case-sensitivity, H.3.2 wrap-only-write race, H.3.6 antiPattern dispatch symmetry. Codify: every script change ships with an E2E probe that exercises the change.
+- **substrate-rich, call-site-poor** (architect's persistent finding) — promote to a discipline check in the patterns library: every new substrate has at least one call-site within the same phase.
+
 ## Phase H.2 (in progress)
 
 ### H.2.2 — Builder persona expansion (07-12) — SHIPPED

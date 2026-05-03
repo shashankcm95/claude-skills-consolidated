@@ -97,16 +97,36 @@ function writeManifestAtomic(manifest) {
 // Path-traversal fix. `kbId` containing `..` would join to a path outside
 // KB_BASE; `kb-resolver cat ../../etc/secrets` reads outside the KB. Boundary
 // check via `path.resolve` ensures the resolved file lives under KB_BASE.
+//
+// H.3.6 (CS-2 hacker.ren CRIT-2): the lexical check above is symlink-blind.
+// A symlink at `KB_BASE/escape -> /etc` lexically lives under KB_BASE, so
+// `path.resolve(KB_BASE, "escape")` returns `KB_BASE/escape`; the check
+// passes; the file read goes to /etc. Fix: after lexical check, follow
+// symlinks via fs.realpathSync and re-verify the canonical path lives under
+// realpath(KB_BASE). Lexical check is kept as the cheap first-pass defense
+// for paths that don't exist (realpath throws on ENOENT).
 function findDocPath(kbId) {
   const candidate = path.resolve(KB_BASE, kbId + '.md');
   const baseResolved = path.resolve(KB_BASE);
-  // Refuse if the resolved candidate escapes KB_BASE. The trailing path.sep
-  // guard prevents `KB_BASE_extra` matching `KB_BASE` as a prefix.
+  // Lexical first-pass — refuses `..`-traversal even on missing files.
+  // Trailing path.sep guard prevents `KB_BASE_extra` from matching `KB_BASE` as a prefix.
   if (!candidate.startsWith(baseResolved + path.sep) && candidate !== baseResolved) {
     return null;
   }
-  if (fs.existsSync(candidate)) return candidate;
-  return null;
+  if (!fs.existsSync(candidate)) return null;
+  // Symlink-aware second-pass: canonicalize both sides and re-check boundary.
+  let realCandidate, realBase;
+  try {
+    realCandidate = fs.realpathSync(candidate);
+    realBase = fs.realpathSync(baseResolved);
+  } catch {
+    // realpath failed (broken symlink, race-deleted, perms) → refuse.
+    return null;
+  }
+  if (!realCandidate.startsWith(realBase + path.sep) && realCandidate !== realBase) {
+    return null;
+  }
+  return candidate;
 }
 
 function loadDoc(kbId) {
