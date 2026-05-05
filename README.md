@@ -1,8 +1,43 @@
-# claude-toolkit
+# claude-skills-consolidated
 
-A curated, opinionated enhancement layer for Claude Code. Two layers:
+> **Deterministic operating substrate for Claude Code** — hook-enforced rules (not advisory markdown), HETS multi-agent orchestration with persistent identity reputation + per-spawn budget enforcement, triple-contract output verifier, kb_scope enforcement, threshold-based auto self-improve loop, and chaos-test meta-validation.
+>
+> **Hooks before, persistence around, verification after** — compensates for LLM non-determinism at the seams without trying to replace the LLM.
 
-**Substrate**: 6 deterministic hooks + 8 rules + 9 skills + 5 agents + 8 slash commands working together to make Claude more reliable, less hallucinatory, and continuously self-improving — across any project, any stack.
+## Install
+
+```bash
+# As an official Claude Code plugin (recommended)
+/plugin marketplace add shashankcm95/claude-skills-consolidated
+/plugin install claude-skills-consolidated
+
+# Or via the legacy installer (fallback for manual setups)
+git clone https://github.com/shashankcm95/claude-skills-consolidated.git ~/Documents/claude-toolkit
+cd ~/Documents/claude-toolkit && ./install.sh --all
+```
+
+After install, restart Claude Code (or run `/reload-plugins`).
+
+## What separates this from typical Claude plugins
+
+Most public Claude Code plugins are SKILL.md prompt templates wrapped in a manifest. This one isn't. Differentiation is concrete + verifiable:
+
+| Capability | Most plugins | This plugin |
+|------------|--------------|-------------|
+| **Hook-layer enforcement** | 0–2 hooks (or just logging) | **11 deterministic hooks** across 5 lifecycle events: vague-prompt detection, fact-forcing gate, config-guard, secrets validator, frontmatter validator, pre-compact checkpoint, auto-store-enrichment, etc. |
+| **Multi-agent coordination** | Single-agent prompt | **HETS substrate**: 12 personas (5 auditor + 7 builder) with persistent named identities, spawn-tree tracking, per-spawn budget enforcement, asymmetric/symmetric challenger pairing, trust-tiered verification depth |
+| **Output verification** | None | **Triple contract** (functional + anti-pattern + structural checks) runs against every actor output; `kb_scope_consumed` verifies declared KB docs were actually read; `invokesRequiredSkills` verifies declared skills were actually invoked |
+| **Persistence across sessions** | Stateless prompts | `~/.claude/agent-identities.json` accumulates trust scores, skill-invocation history, totalSpawns. Pass-rate trust formula is **explicitly documented**, not a black-box weighting |
+| **Self-improvement** | Static skills | **4-trigger auto-loop**: Stop hook bumps signal counters every turn, scans every 30th turn + at compaction; UserPromptSubmit hook injects ONE batched approval reminder per session. Threshold-based auto-graduation for low-risk promotions |
+| **Meta-validation** | None | **Chaos-test** runs the audit infrastructure against itself; surfaced 5 regressions in CS-2 alone that would have shipped silently |
+| **Architectural patterns** | Implicit | **13 documented patterns** in `skills/agent-team/patterns/` — kb-scope-enforcement, trust-tiered-verification, asymmetric-challenger, persona-skills-mapping, structural-code-review, etc. |
+| **Pre-ship auditability** | Reads vibes | `node scripts/agent-team/contracts-validate.js` cross-checks 4 sources of truth; today reports 0 violations |
+
+If you want a single-file SKILL.md prompt template, this isn't it. If you want a substrate that wraps Claude Code's stateless LLM with deterministic gates + persistence + multi-agent verification, you're in the right place.
+
+## Two layers in one plugin
+
+**Substrate**: 11 deterministic hooks + 6 rules + 13 skills + 5 agents + 8 slash commands working together to make Claude more reliable, less hallucinatory, and continuously self-improving — across any project, any stack.
 
 **HETS** (Hierarchical Engineering Team Simulation, Phase H.x): a separate layer for complex multi-step work — 12 specialist personas (5 auditors + 7 builders) with persistent named identities, content-addressed shared knowledge base, contract-verified outputs, asymmetric/symmetric pairing, trust-tiered verification, and integration with the `knowledge-work-plugins` marketplace. See [skills/agent-team/SKILL.md](skills/agent-team/SKILL.md).
 

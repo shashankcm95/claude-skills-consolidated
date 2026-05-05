@@ -2,6 +2,15 @@
 
 Deferred work from prior phases, captured here so nothing important gets silently dropped. Each entry: scope, rationale, dependencies, rough estimate.
 
+## Phase H.5.0 — official Claude Code plugin packaging — SHIPPED
+
+**Status**: shipped. Toolkit is now installable as an official Claude Code plugin via `/plugin marketplace add shashankcm95/claude-skills-consolidated`. Three new manifests at repo root (`.claude-plugin/plugin.json`, `hooks/hooks.json`, `marketplace.json`) match the `code.claude.com/docs/en/plugins-reference` schema. Anti-AI-slop differentiation table in README explicitly compares this plugin's enforcement footprint (11 hooks, multi-agent HETS, triple-contract verifier, threshold-based auto self-improve, chaos-test meta-validation, 13 patterns) against typical SKILL.md-template plugins.
+
+**H.5.x follow-ups (not yet scoped)**:
+- **H.5.1 — official marketplace submission**: submit via `https://platform.claude.com/plugins/submit` once we've stress-tested the plugin install path with at least one external user. Anthropic review process (safety + quality gate); not publicly documented.
+- **Multi-plugin marketplace split**: today the marketplace.json lists one plugin. If specific components grow independent uptake (HETS standalone, prompt-enrichment standalone, validators standalone), revisit splitting into separate plugin entries within the same marketplace.
+- **Deprecate `install.sh`?**: keep as fallback for now; reassess after H.5.1 if plugin-path adoption reaches 80%+ of installs.
+
 ## Phase H.4.2 — validator hooks + trust formula transparency — SHIPPED
 
 **Status**: shipped. Two hook-layer validators + one pattern-doc clarification, deferred from the original H.4.1 scope so H.4.1 could ship the auto self-improve loop in isolation.

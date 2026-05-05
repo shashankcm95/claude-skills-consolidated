@@ -1,0 +1,22 @@
+{
+  "name": "claude-skills-consolidated-marketplace",
+  "owner": {
+    "name": "Shashank Chandrashekar Murigappa",
+    "url": "https://github.com/shashankcm95"
+  },
+  "plugins": [
+    {
+      "name": "claude-skills-consolidated",
+      "source": ".",
+      "description": "Deterministic operating substrate for Claude Code — hook-enforced rules, HETS multi-agent orchestration, triple-contract verifier, threshold-based auto self-improve loop, chaos-test meta-validation.",
+      "category": "agent-orchestration",
+      "tags": [
+        "deterministic-substrate",
+        "multi-agent",
+        "hets",
+        "anti-hallucination",
+        "self-improving"
+      ]
+    }
+  ]
+}

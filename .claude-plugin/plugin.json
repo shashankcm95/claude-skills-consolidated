@@ -1,0 +1,27 @@
+{
+  "name": "claude-skills-consolidated",
+  "version": "0.5.0",
+  "description": "Deterministic operating substrate for Claude Code — hook-enforced rules (not advisory markdown), HETS multi-agent orchestration with persistent identity reputation + per-spawn budget enforcement, triple-contract output verifier, kb_scope enforcement, threshold-based auto self-improve loop, and chaos-test meta-validation. Hooks before, persistence around, verification after — compensates for LLM non-determinism at the seams without trying to replace the LLM.",
+  "author": {
+    "name": "Shashank Chandrashekar Murigappa",
+    "url": "https://github.com/shashankcm95"
+  },
+  "homepage": "https://github.com/shashankcm95/claude-skills-consolidated",
+  "repository": "https://github.com/shashankcm95/claude-skills-consolidated",
+  "license": "MIT",
+  "keywords": [
+    "deterministic-substrate",
+    "hooks",
+    "multi-agent",
+    "hets",
+    "persistent-identity",
+    "trust-tiered-verification",
+    "triple-contract",
+    "anti-hallucination",
+    "self-improving",
+    "chaos-test",
+    "kb-scope",
+    "agent-orchestration",
+    "operating-discipline"
+  ]
+}
