@@ -58,10 +58,10 @@ These shape Claude's reasoning but **can be skipped** by the LLM under pressure.
 
 To prevent disappointment, here's what the toolkit doesn't do:
 
-- ❌ **Does not guarantee Claude follows rules.** Rules are markdown text injected into every session. Claude may skip them under context pressure (verified empirically — see `swarm/run-state/`).
-- ❌ **Does not give agents persistent personality across sessions.** Each agent invocation is a fresh subagent with its `.md` system prompt.
-- ❌ **Does not automatically promote patterns from memory to rules.** That's a manual workflow via `/self-improve` (the user must invoke it).
-- ❌ **Does not enforce MemPalace usage.** When MemPalace is configured, the toolkit suggests storing things there; whether Claude does is up to Claude.
+- ❌ **Does not guarantee Claude follows the markdown rules in `rules/`.** Those are advisory text injected into every session. Claude may skip them under context pressure (verified empirically — see `swarm/run-state/`). **Specific rules ARE hook-enforced and deterministic** — Read-before-Edit (`fact-force-gate.js`), vague-prompt detection (`prompt-enrich-trigger.js`), settings.json guard (`config-guard.js`), pre-compact checkpoint (`pre-compact-save.js`), and enrichment auto-store (`auto-store-enrichment.js`). The advisory rules ride on best-effort instruction following; hooks ride on hard guarantees.
+- ❌ **Does not give agents continuous LLM memory across sessions.** Each spawn is a fresh LLM call with its `.md` system prompt — the model doesn't remember prior spawns. **However**, the toolkit maintains per-identity persistence at `~/.claude/agent-identities.json` (trust scores, skill-invocation history, task-type frequency, totalSpawns) and pattern history at `~/.claude/agent-patterns.json`. Identities like `01-hacker.ren` accumulate reputation across runs; spawn-time prompts can retrieve identity-specific context from these stores. See `skills/agent-team/patterns/agent-identity-reputation.md`.
+- ❌ **Does not automatically promote patterns from memory to rules.** Memory→Rule and Pattern→Skill promotion is manual via `/self-improve` (the user must invoke it). Narrow exception: enrichment patterns at `~/.claude/prompt-patterns.json` with 5+ approvals auto-apply per `rules/toolkit/core/prompt-enrichment.md` — that's pattern→behavior automation, not promotion to a permanent rule.
+- ❌ **Does not enforce MemPalace usage.** When MemPalace is configured, the toolkit suggests storing things there; whether Claude does is up to Claude. The `pre-compact-save.js` hook deterministically writes the fallback file at `~/.claude/checkpoints/mempalace-fallback.md`, but MemPalace itself stays suggested-not-enforced.
 
 ---
 
