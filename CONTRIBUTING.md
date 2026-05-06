@@ -131,6 +131,7 @@ After CONTRIBUTING.md adoption, all prior phase commits were tagged in place (an
 | `phase-H.7.0-prep` | `1c5f7e5` | Hybrid quality factors + validation_sources registry — observability layer for H.7.0 evolution loop (5 axes captured per verdict; trust formula unchanged) |
 | `phase-H.7.1` | `9f41c07` | Asymmetric-challenger callsite wired into /build-team Step 7 — first phase via corrected autonomous-platform pattern (architect + 13-node-backend pair-run; convergence axis captured) |
 | `phase-H.7.2` | (TBD) | Theory-driven weighted trust score — second phase via corrected pattern; weighted_trust_score now surfaces alongside tierOf (unchanged); 11 builder verdicts toolkit-wide |
+| `phase-H.5.7` | (TBD) | Engineering-task contract template (shared generic, mirrors challenger.contract.json shape) + build-team Step 7 task-type heuristic + structural-code-review cross-link — closes M-5 from H.6.9 |
 
 `d166add` (README refresh through H.2.4) and `90b87ac` (chat-scan BACKLOG additions) were doc-only commits — no tags (matches "trivial docs allowed direct on main" rule).
 

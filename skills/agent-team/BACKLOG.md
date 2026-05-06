@@ -2,6 +2,53 @@
 
 Deferred work from prior phases, captured here so nothing important gets silently dropped. Each entry: scope, rationale, dependencies, rough estimate.
 
+## Phase H.5.7 — Engineering-task contract template — SHIPPED
+
+**Status**: shipped via the corrected autonomous-platform pattern (theo designed; kira implemented; root coordinated). Closes M-5 from H.6.9 ("contract-shape mismatch — 4/5 cycle tasks contorted engineering work into audit-shape") + the original H.5.6 H-1 finding from `12-security-engineer.mio`.
+
+### Motivating event
+
+`03-code-reviewer.nova` produced a 9-line BACKLOG cleanup report (genuine signal: 2 findings + 1 file citation for trivial doc surgery) that received `verdict fail` against `03-code-reviewer.contract.json` — not because the work was bad, but because audit-shape thresholds (`minFindings ≥ 3`, `hasFileCitations ≥ 6`, `hasSeveritySections [CRITICAL, HIGH, MEDIUM, LOW]`) were the wrong shape for engineering-style trivial cleanup. The H.5.7 problem became live in real time.
+
+### What landed
+
+- **New `swarm/personas-contracts/engineering-task.contract.json`** — generic shared template mirroring `challenger.contract.json`'s shape:
+  - `agentId: actor-engineering-task`, `persona: <set-at-spawn>`, `role: actor` (explicit, MEDIUM-1)
+  - Engineering-fit thresholds: `F3 minFindings ≥ 1`, `F4 hasFileCitations ≥ 1` (vs audit's 3 + 6)
+  - F5 `noUnrolledLoops` + F6 `noExcessiveNesting` preserved unchanged (structural defenses apply uniformly)
+  - F7 `kb_scope_consumed` retained (graceful pass when no transcript supplied)
+  - `hasSeveritySections` + `containsKeywords` REMOVED (audit-shaped checks invite "## CRITICAL\n\nNone." padding)
+  - A4 `acknowledgesFallback` REMOVED (same pad-pressure; HIGH-2 from theo's review)
+  - F3 `_doc` clarified: findings are H3 sub-sections under severity blocks, not Summary text (HIGH-4)
+  - Token budget: 35K + 1×15K extension to 50K (matches 13-node-backend.contract.json:28-33)
+
+- **`commands/build-team.md` Step 7 task-type heuristic** — explicit `--task-type` override path + extended audit-verb regex (`audit|review|assess|analyze|investigate|check|verify|inspect|examine|find vulnerabilities`); audit-precedence by design for mixed-mode tasks; engineering as fallback default (1+1 thresholds make permissive contract no-regression-risk).
+
+- **`patterns/structural-code-review.md`** cross-link — new "Engineering vs Audit Tasks" subsection confirming F5/F6 apply uniformly across both task types via the H.5.7 template.
+
+### Self-test (nova-recovery)
+
+Re-verifying nova's exact same output against `engineering-task.contract.json` yields `verdict pass; functionalFailures: 0; antiPatternFailures: 0`. Closes the loop: the LAST run under audit-shape contract ships the engineering-shape contract template.
+
+### Cycle data (pair-run via H.7.1 asymmetric-challenger pattern)
+
+- `04-architect.theo` (design pass): 16 findings + 67 citations, PASS
+- `13-node-backend.kira` (implementation pass): paired verdict
+- Both recorded with `--paired-with` + `--convergence agree`
+
+### Acceptance tests passed
+
+- `node -e 'JSON.parse(...)'` — JSON valid
+- `grep "H.5.7 — task-type heuristic" commands/build-team.md` — heuristic flow inserted
+- `grep "Engineering vs Audit Tasks" skills/agent-team/patterns/structural-code-review.md` — cross-link present
+- `node scripts/agent-team/contracts-validate.js` — 0 violations across all 7 validators
+
+### H.5.7 follow-ups (deferred)
+
+- **Per-spawn `--task-type` propagation**: today the heuristic lives at build-team Step 7. Orchestrators invoking spawn machinery directly (outside `/build-team`) need to pass `--contract` explicitly — future phase could add `--task-type` to `spawn_implementer` itself.
+- **Engineering-task contract for OLDER outputs**: F2 requires `identity` field, present only post-H.7.0 spawn convention. For pre-H.7.0 reports the audit contract still applies; future migration if older outputs need re-verification.
+- **Update `kb:hets/spawn-conventions`** to mention contract-selection-by-task-type as a discoverable convention (per H.6.9 M-1 follow-up).
+
 ## Phase H.7.2 — Theory-driven weighted trust score — SHIPPED
 
 **Status**: shipped via corrected autonomous-platform pattern (mira designed; evan implemented; root coordinated). Closes the "rich measurement, binary signal" gap — quality axes now contribute to within-tier ranking without breaking the H.4.2 audit-transparency commitment.
@@ -135,7 +182,7 @@ The H.6.x cycle (H.6.0 → H.6.9) is now CLOSED. Aggregate findings doc at `swar
 **H.6.9 follow-ups (deferred)**:
 - Update `kb:hets/spawn-conventions` re: severity-section finding placement (M-1)
 - Author 7 logged capability gaps (4 forge-skill, 3 author-kb-doc) when first concrete task surfaces blocker
-- Promote H.5.7 (builder-engineering-task contract template) — 4/5 cycle tasks hit it; not blocking but real
+- ~~Promote H.5.7 (builder-engineering-task contract template) — 4/5 cycle tasks hit it; not blocking but real~~ — **RESOLVED by H.5.7**
 - Run a second cycle on diverse user tasks to accumulate verdicts toward H.7.0's 20-verdict threshold
 
 ## Phase H.6.8 — first post-H.6.7 orchestration test (H.6.1 closure) — SHIPPED
@@ -255,20 +302,13 @@ The `gaps` aggregator is the load-bearing subcommand — surfaces recurring orch
 - **H.6.2** — batch 4 more orchestration tests across diverse domains (security, devops, data, frontend)
 - **H.6.3** — analyze recurring gaps; decide which to fix as code (e.g., auto-trigger forge), which to fix as docs (e.g., disambiguate task → persona routing rules)
 
-## Phase H.5.7 — builder contract shape (NEW from H.5.6 dogfood)
+## Phase H.5.7 — builder contract shape — SHIPPED (see top of BACKLOG)
 
-**Status**: not yet started. Surfaced as H-1 by `12-security-engineer.mio` during the H.5.6 dogfood run.
+**Status**: shipped. Original surfacing context preserved below for historical reference. See "Phase H.5.7 — Engineering-task contract template — SHIPPED" at the top of this file for what landed.
 
-**The finding**: the 12-security-engineer contract (and presumably the other 6 builder contracts 06-11 by symmetry) is shaped for audit-report output: `minFindings ≥ 2`, `hasFileCitations ≥ 4`, `hasSeveritySections [CRITICAL, HIGH, MEDIUM, LOW]`, `containsKeywords ["threat"]`, audit-domain `kb_scope`. This works for chaos-test runs where builders simulate adversarial audits. It does NOT work for builders running real engineering tasks: mio had to (a) re-frame contract-editing decisions as numbered findings, (b) pad citations across edited files to hit the threshold, (c) read KB docs that weren't load-bearing for the engineering task, (d) invent severity sections that mostly say "None this run".
+**Original H.5.6 H-1 finding** (preserved): the 12-security-engineer contract (and presumably the other 6 builder contracts 06-11 by symmetry) is shaped for audit-report output: `minFindings ≥ 2`, `hasFileCitations ≥ 4`, `hasSeveritySections [CRITICAL, HIGH, MEDIUM, LOW]`, `containsKeywords ["threat"]`, audit-domain `kb_scope`. This works for chaos-test runs where builders simulate adversarial audits. It does NOT work for builders running real engineering tasks.
 
-**Two design options for H.5.7**:
-
-1. **Separate contract template** — author `builder-engineering-task.contract.json` template with engineering-shaped checks (e.g., `producesValidJSON`, `passesContractsValidate`, `noUnscopedFileEdits`, `decisionsDocumented`). Each builder-on-engineering spawn picks the engineering template instead of its persona contract.
-2. **Conditional checks** — extend persona contracts with `task_type` field (`audit` | `engineering`) and have contract-verifier dispatch different functional checks per type. More complex but keeps personas single-source.
-
-**Estimate**: 1 hr for option 1 (~80 LoC across new template + verifier dispatch). 2 hrs for option 2 (verifier dispatch + per-persona task-type-aware checks).
-
-**Why not block on this for H.5.6**: mio's PASS verdict is genuine (she did the engineering work + the report). The finding is real future work; not a regression in the current substrate.
+**Resolution chosen**: Option 1 (separate contract template) — `engineering-task.contract.json` is the shared generic template (mirroring `challenger.contract.json`'s shape), selected at spawn time by the build-team Step 7 task-type heuristic. Option 2 (conditional checks per task_type) was rejected as more complex without proportional benefit.
 
 ## Phase H.5.6 — first builder dogfood — SHIPPED
 

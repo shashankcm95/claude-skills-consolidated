@@ -50,6 +50,33 @@ Follow the 7-step workflow in `skills/tech-stack-analyzer/SKILL.md`:
   # 2. Spawn implementer (always, regardless of tier)
   spawn_implementer "$IDENTITY" "$TASK"   # follows kb:hets/spawn-conventions
 
+  # H.5.7 — task-type heuristic for contract selection.
+  # Honors --task-type explicit override if root provides ($TASK_TYPE_OVERRIDE);
+  # otherwise heuristic-by-verbs. Audit-precedence by design: mixed-mode tasks
+  # ("audit and fix the OAuth flow") default to audit unless override forces
+  # engineering. Engineering is the fallback default — its 1+1 thresholds make it
+  # permissive, so a misclassified-as-engineering audit task still passes (no
+  # regression). A misclassified-as-audit engineering task fails the audit
+  # contract on minFindings/citations padding — which IS the H.5.7 problem this
+  # heuristic exists to solve.
+  TASK_TYPE_OVERRIDE=""  # Root sets to "audit" or "engineering" if explicit; else heuristic fires.
+
+  if [ -n "$TASK_TYPE_OVERRIDE" ]; then
+    TASK_TYPE="$TASK_TYPE_OVERRIDE"
+  elif echo "$TASK_DESCRIPTION" | grep -iE "audit|review|assess|analyze|investigate|check|verify|inspect|examine|find vulnerabilities" > /dev/null; then
+    TASK_TYPE="audit"
+  else
+    TASK_TYPE="engineering"  # fallback default — permissive contract has no regression risk
+  fi
+
+  if [ "$TASK_TYPE" = "audit" ]; then
+    IMPL_CONTRACT="swarm/personas-contracts/${PERSONA}.contract.json"  # use persona's audit-shaped contract
+  else
+    IMPL_CONTRACT="swarm/personas-contracts/engineering-task.contract.json"  # H.5.7 generic engineering contract
+  fi
+
+  echo "H.5.7 selected: TASK_TYPE=$TASK_TYPE, CONTRACT=$IMPL_CONTRACT"
+
   # 3. Branch on verification policy.
   #    SKIP_CHECKS is read ONLY in the high-trust branch (H-2 of the H.7.1 design):
   #    medium/low must run full verification.

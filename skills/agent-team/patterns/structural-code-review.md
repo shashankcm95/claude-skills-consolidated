@@ -45,6 +45,10 @@ Stress-test scenarios:
 - Any persona contract where the spawn task involves implementing a fix (not just identifying one).
 - Periodic chaos audits to verify the third-contract defense is firing in real outputs.
 
+### Engineering vs Audit Tasks
+
+The structural checks (`noUnrolledLoops` F5, `noExcessiveNesting` F6) apply uniformly across both task types via the H.5.7 `engineering-task.contract.json` template. See `commands/build-team.md` Step 7 for task-type heuristic + contract selection.
+
 ## When NOT to use
 
 - Contracts for personas that produce only findings (auditor family — 01-05). Adding the checks adds verifier overhead with no benefit.
