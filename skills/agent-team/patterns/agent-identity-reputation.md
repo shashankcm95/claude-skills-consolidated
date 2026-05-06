@@ -108,6 +108,49 @@ A weighted formula like `0.4·passRate + 0.2·skillCompleteness + 0.2·recency +
 - Partial-credit weight — currently 0.0; tuning to 0.5 would let challenger personas (which often produce partial verdicts on edge cases) accumulate trust faster.
 - Recency window — track `passRate` over last N verdicts as well as lifetime; surface both in `tier` output.
 
+## Lifecycle + Evolution Vision (H.6.6 + H.7.0)
+
+Trust scoring isn't an end-state — it's an input to a longer evolution loop. The toolkit's vision is **agent breeding**: after enough iterations, the roster collapses to high-trust specialists tuned to *this user's actual workload*. Mirror of how modern chickens are bred to maximize egg-laying — selection pressure → reproduction → culling → generational specialization.
+
+### L1 — Lifecycle primitives (SHIPPED in H.6.6)
+
+The `prune` subcommand walks the identity store and produces recommendations:
+
+| Recommendation | Rule | Action (with `--auto`) |
+|----------------|------|------------------------|
+| **Retire** | `verdicts ≥ 10` AND `passRate < 0.3` | Set `retired: true` + `retiredAt` + `retiredReason`. Identity stays in JSON for audit/replay; round-robin in `assign` skips them. |
+| **Tag specialist** | `verdicts ≥ 5` AND `passRate ≥ 0.8` AND `skillInvocations[X] ≥ 3` | Add skill to `specializations[]`. Populate `traits.skillFocus = X`. Advisory only — doesn't change routing today. |
+
+Defaults are CLI-tunable (`--retire-min-verdicts`, `--retire-pass-rate-max`, `--specialist-min-verdicts`, `--specialist-pass-rate-min`, `--specialist-min-invocations`).
+
+`agent-identity unretire --identity X` restores a soft-retired identity (mistake-recovery; reversible by design).
+
+**Schema additions (forward-compatible for L3)**:
+- `retired: bool`, `retiredAt: ISO`, `retiredReason: string` — used by L1 today
+- `parent: identity-id | null` — placeholder for L3 lineage (always null today)
+- `generation: int` — 0 for round-robin originals; H.7.0 will increment per generation
+- `traits: { skillFocus, kbFocus, taskDomain }` — `skillFocus` populated by `prune --auto`; rest reserved for L3
+
+### L2 — Input-quality (SHIPPED in H.6.7)
+
+Skill-forge consults a canonical-source registry before generic internet research. See [skill-bootstrapping](skill-bootstrapping.md) for the bootstrap flow; this just changes the *sources* it uses.
+
+### L3 — Evolution loop (DEFERRED to H.7.0)
+
+The breeding mechanism. Deliberately deferred until ≥20 real builder verdicts accumulate (n=1 today; rules would be guesswork). Pre-design constraints:
+
+- **Lineage tracked**: each kid identity records `parent: identity-id` + `generation: parent.generation + 1`
+- **Inheritance shape**: kid gets `traits` from parent as priors (skill focus + kb focus); empty verdict record (start as unproven)
+- **Diversity preserved**: at least 1 round-robin generalist per persona kept un-bred (avoid monoculture)
+- **Triggers**: `breed --persona X` manual subcommand; later periodic; gated by user approval per skill-bootstrapping convention
+- **Population size**: kept bounded (retire offsets breed; roster doesn't grow unboundedly)
+
+Until H.7.0 ships: breeding is a vision, not an implementation. L1's schema additions ensure when L3 lands, prior identity data is already L3-shaped.
+
+### Why the staged rollout
+
+L3 needs population-level data to design rules well. Trying to design breeding from n=1 verdict produces guesswork rules that get tuned later anyway. L1 + L2 are the substrate that the population accumulates *into*. After ≥20 builder verdicts, the data exists to design L3 empirically.
+
 ## Related Patterns
 
 - [Trust-Tiered Verification Depth](trust-tiered-verification.md) — reads per-identity trust to decide verification depth

@@ -2,6 +2,50 @@
 
 Deferred work from prior phases, captured here so nothing important gets silently dropped. Each entry: scope, rationale, dependencies, rough estimate.
 
+## Phase H.7.0 — evolution loop (DEFERRED — needs population data)
+
+**Status**: deferred. Design constraints documented; implementation gated on data accumulation.
+
+**The vision**: complete the user's chicken-breeding analogy. After enough iterations, the per-persona roster collapses to **high-trust specialists tuned to the user's actual workload** via selection → reproduction → culling. L1 (H.6.6) ships the substrate primitives (soft-retire + specialist-tag + L3-forward schema with `parent`/`generation`/`traits`); H.7.0 is the breeding mechanism that USES those primitives.
+
+**Why deferred**: today there is exactly **n=1 real builder verdict** in the system (12-security-engineer.mio's H.5.6 dogfood PASS). Designing breeding rules — what specializations propagate, what thresholds gate reproduction, how parent traits map to kid priors — requires population-level data. Designing from n=1 produces guesswork rules that get re-tuned later anyway. **L1 + L2 are the substrate that the population accumulates *into*; H.7.0 lands when the data exists to design it empirically (target: ≥20 builder verdicts).**
+
+**Scope (when triggered)**:
+- New `agent-identity breed --persona X` subcommand — picks a high-trust parent within the persona, spawns a kid identity with `parent: <parent-id>`, `generation: parent.generation + 1`, empty verdict record (kid starts as `unproven`), inherits `traits` from parent as priors (skill focus + kb focus)
+- Specialization-aware `assign` — when picking from roster, prefer identities whose `specializations[]` overlap `task.tags`. Falls back to round-robin across non-specialists when no match.
+- Diversity guard — at least 1 round-robin generalist per persona must remain un-bred (avoid monoculture; the breeding-only mode would over-fit to the workload that *was* but not what *will be*)
+- Population cap — retire offsets breed (don't grow roster unboundedly)
+- User-gate on first breed per persona (per skill-bootstrapping convention) — opt-in, not silent
+
+**Pre-design constraints (locked in H.6.6 to ensure forward-compat)**:
+- Lineage tracked: `parent: identity-id` + `generation: int` (already in schema)
+- Inheritance shape: `traits` field already in schema (`{ skillFocus, kbFocus, taskDomain }`)
+- Soft-retire: kept (don't hard-delete; keep audit trail)
+- Triggers: manual `breed --persona X` first; automated periodic later (with user-gate)
+
+**Estimate**: ~150-200 LoC + ~3-4hr design + integration. Won't start until ≥20 verdicts accumulate.
+
+## Phase H.6.7 — canonical-source registry (L2 of evolution loop)
+
+**Status**: queued next after H.6.6. Closes the "skill-forge should consult official docs first, internet generic guides second" finding.
+
+**Scope**: New KB doc `kb:hets/canonical-skill-sources` mapping skill names to authoritative source URLs (e.g., `react → https://react.dev/reference`, `kubernetes → https://kubernetes.io/docs`, `node-backend-development → https://nodejs.org/docs`, `swift-development → https://developer.apple.com/documentation/swift`, etc.). ~10-15 entries covering web, mobile, backend, ml, infra, security domains. Skill-forge skill updated to query this registry first; falls back to internet research when no canonical source exists. Pattern docs (skill-bootstrapping, missing-capability-signal) updated with the registry reference.
+
+**Why this matters**: tech skills (React, Kubernetes, Spring Boot) have authoritative documentation that's structurally better than generic blog posts. Forging a skill from official syntax/patterns produces higher-quality scaffolds than scraping Stack Overflow. This is the L2 layer of the evolution-cycle vision: better INPUTS to the substrate (canonical sources) → better intermediate work product (forged skills) → better verdicts → faster trust accumulation → faster L3 selection signal.
+
+**Estimate**: ~100 LoC (KB doc + skill-forge update) + ~1.5 hr.
+
+## Phase H.6.6 — lifecycle primitives + L3-forward schema — SHIPPED
+
+**Status**: shipped. Closes user's chicken-breeding-analogy vision at the L1 (lifecycle primitives) layer. Two new `agent-identity` subcommands (`prune`, `unretire`) + schema additions (`retired`, `parent`, `generation`, `traits`) + `_backfillH66Schema` for legacy records + retired-skip in `cmdAssign` round-robin.
+
+The toolkit can now soft-retire underperforming identities (verdicts ≥ 10, passRate < 0.3) + tag specialists (verdicts ≥ 5, passRate ≥ 0.8, ≥3 invocations of one skill). Schema is L3-forward: `parent` and `generation` ride along blind today (null + 0); when H.7.0 ships breeding, prior identity data is already shape-compatible — no migration.
+
+**H.6.6 follow-ups (deferred)**:
+- **Specialization-aware assign** — today `assign` is round-robin; H.7.0 wants specialization × task-tag matching. Substrate exists (specialiations[] + traits); routing logic is the H.7.0 work.
+- **`prune` periodic schedule** — today manual; could become a Stop-hook trigger every N turns. Defer until at least one real prune happens manually + pattern proves out.
+- **Decay specializations over time** — pattern doc's failure mode #2 ("stale specializations"): auto-derived tags persist after focus shifts. Option: require ≥3 recent runs in category to keep tag. Not load-bearing today (n=1 specialist).
+
 ## Phase H.6.5 — missing-capability-signal pattern (autonomous platform extension) — SHIPPED
 
 **Status**: shipped. Closes the meta-finding from post-H.6.4 conversation: *"the orchestrator should be authoring personas, not the user hand-writing them."*
