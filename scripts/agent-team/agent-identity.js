@@ -116,9 +116,39 @@ function ensureIdentity(store, persona, name) {
       verdicts: { pass: 0, partial: 0, fail: 0 },
       specializations: [],
       skillInvocations: {},
+      // H.6.6 — Lifecycle primitives + forward-compatible schema for H.7.0
+      // (evolution loop). These fields are populated/used by `prune` today;
+      // `parent` + `generation` + `traits` are forward-compat for H.7.0
+      // breeding which will read them when designing inheritance rules.
+      retired: false,
+      retiredAt: null,
+      retiredReason: null,
+      parent: null,        // identity-id of the parent (for H.7.0 lineage)
+      generation: 0,       // 0 = ancestor (round-robin original); H.7.0 will increment per generation
+      traits: {            // computed from history; populated by `prune --auto`
+        skillFocus: null,    // dominant skill name from skillInvocations
+        kbFocus: [],         // dominant kb_scope refs (from spawn history; H.7.0 work)
+        taskDomain: null,    // dominant task tag prefix (e.g., "audit-*", "build-*")
+      },
     };
   }
   return store.identities[id];
+}
+
+// H.6.6 — Backfill function: when reading the store, inject default values
+// for new H.6.6 fields on identities that pre-date this schema. Keeps
+// lifecycle/evolution logic safe to invoke against legacy records without
+// requiring a one-shot migration script.
+function _backfillH66Schema(identity) {
+  if (identity.retired === undefined) identity.retired = false;
+  if (identity.retiredAt === undefined) identity.retiredAt = null;
+  if (identity.retiredReason === undefined) identity.retiredReason = null;
+  if (identity.parent === undefined) identity.parent = null;
+  if (identity.generation === undefined) identity.generation = 0;
+  if (!identity.traits) {
+    identity.traits = { skillFocus: null, kbFocus: [], taskDomain: null };
+  }
+  return identity;
 }
 
 function cmdInit() {
@@ -173,13 +203,26 @@ function cmdAssign(args) {
       console.error(`No roster for persona: ${args.persona}. Add one to DEFAULT_ROSTERS or store.rosters.`);
       process.exit(1);
     }
-    const roster = store.rosters[args.persona];
+    const fullRoster = store.rosters[args.persona];
+    // H.6.6: filter out retired identities. The roster is the universe of
+    // possible names; the live pool is roster minus retired. If everyone
+    // is retired, fail loud (prevents silent infinite-loop on fully-pruned
+    // persona).
+    const liveRoster = fullRoster.filter((n) => {
+      const id = `${args.persona}.${n}`;
+      const existing = store.identities[id];
+      return !(existing && existing.retired);
+    });
+    if (liveRoster.length === 0) {
+      console.error(`All identities for persona ${args.persona} are retired. Add new names to roster OR un-retire via 'unretire' subcommand.`);
+      process.exit(1);
+    }
     if (store.nextIndex[args.persona] === undefined) store.nextIndex[args.persona] = 0;
     const idx = store.nextIndex[args.persona];
-    const name = roster[idx % roster.length];
-    store.nextIndex[args.persona] = (idx + 1) % roster.length;
+    const name = liveRoster[idx % liveRoster.length];
+    store.nextIndex[args.persona] = (idx + 1) % liveRoster.length;
 
-    const identity = ensureIdentity(store, args.persona, name);
+    const identity = _backfillH66Schema(ensureIdentity(store, args.persona, name));
     identity.lastSpawnedAt = new Date().toISOString();
     identity.totalSpawns += 1;
 
@@ -454,6 +497,155 @@ function cmdRecord(args) {
   });
 }
 
+// H.6.6 — Lifecycle thresholds. Tunable defaults; identity-specific overrides
+// could be added via env or config in a future phase. Conservative bias:
+// retire only after 10 verdicts (gives time for trust to stabilize); promote
+// to specialist only after 5 verdicts AND a clear skill dominance.
+const PRUNE_DEFAULTS = {
+  retireMinVerdicts: 10,
+  retirePassRateMax: 0.3,
+  specialistMinVerdicts: 5,
+  specialistPassRateMin: 0.8,
+  specialistMinInvocations: 3,
+};
+
+function _computeRecommendation(identity, thresholds = PRUNE_DEFAULTS) {
+  const v = identity.verdicts || { pass: 0, partial: 0, fail: 0 };
+  const total = v.pass + v.partial + v.fail;
+  const passRate = total === 0 ? 0 : v.pass / total;
+  const recs = [];
+
+  // Already-retired identities don't get re-evaluated
+  if (identity.retired) {
+    return { skip: true, reason: 'already-retired' };
+  }
+
+  // Retire candidate
+  if (total >= thresholds.retireMinVerdicts && passRate < thresholds.retirePassRateMax) {
+    recs.push({
+      action: 'retire',
+      reason: `passRate=${passRate.toFixed(2)} < ${thresholds.retirePassRateMax} over ${total} verdicts`,
+    });
+  }
+
+  // Specialist candidate — find the dominant skill
+  if (total >= thresholds.specialistMinVerdicts && passRate >= thresholds.specialistPassRateMin) {
+    const skillCounts = identity.skillInvocations || {};
+    const dominantSkill = Object.entries(skillCounts)
+      .filter(([, n]) => n >= thresholds.specialistMinInvocations)
+      .sort((a, b) => b[1] - a[1])[0];
+    if (dominantSkill) {
+      const [skill, count] = dominantSkill;
+      // Only recommend if not already tagged
+      if (!(identity.specializations || []).includes(skill)) {
+        recs.push({
+          action: 'tag-specialist',
+          skill,
+          invocations: count,
+          reason: `passRate=${passRate.toFixed(2)} ≥ ${thresholds.specialistPassRateMin}; ${skill} invoked ${count}× (≥${thresholds.specialistMinInvocations})`,
+        });
+      }
+    }
+  }
+
+  return { skip: recs.length === 0, recommendations: recs, total, passRate };
+}
+
+function cmdPrune(args) {
+  const apply = !!args.auto;
+  const thresholds = { ...PRUNE_DEFAULTS };
+  // Optional CLI override of any threshold
+  for (const k of Object.keys(PRUNE_DEFAULTS)) {
+    const cliKey = k.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase());
+    if (args[cliKey] !== undefined) {
+      thresholds[k] = parseFloat(args[cliKey]);
+    }
+  }
+
+  let summary;
+  withLock(() => {
+    const store = readStore();
+    const out = {
+      action: 'prune',
+      mode: apply ? 'auto-apply' : 'advisory',
+      thresholds,
+      retired: [],
+      tagged: [],
+      skipped: [],
+    };
+
+    for (const [id, identity] of Object.entries(store.identities)) {
+      _backfillH66Schema(identity);
+      const result = _computeRecommendation(identity, thresholds);
+      if (result.skip) continue;
+
+      for (const rec of result.recommendations) {
+        if (rec.action === 'retire') {
+          out.retired.push({
+            identity: id,
+            verdicts: identity.verdicts,
+            passRate: result.passRate,
+            reason: rec.reason,
+            applied: apply,
+          });
+          if (apply) {
+            identity.retired = true;
+            identity.retiredAt = new Date().toISOString();
+            identity.retiredReason = rec.reason;
+          }
+        }
+        if (rec.action === 'tag-specialist') {
+          out.tagged.push({
+            identity: id,
+            skill: rec.skill,
+            invocations: rec.invocations,
+            reason: rec.reason,
+            applied: apply,
+          });
+          if (apply) {
+            if (!identity.specializations.includes(rec.skill)) {
+              identity.specializations.push(rec.skill);
+            }
+            // Also populate traits.skillFocus (the H.7.0 field)
+            identity.traits = identity.traits || { skillFocus: null, kbFocus: [], taskDomain: null };
+            identity.traits.skillFocus = rec.skill;
+          }
+        }
+      }
+    }
+
+    out.totalIdentities = Object.keys(store.identities).length;
+    out.retireCount = out.retired.length;
+    out.tagCount = out.tagged.length;
+
+    if (apply) writeStore(store);
+    summary = out;
+  });
+  console.log(JSON.stringify(summary, null, 2));
+}
+
+function cmdUnretire(args) {
+  if (!args.identity) {
+    console.error('Usage: unretire --identity <persona.name>');
+    process.exit(1);
+  }
+  withLock(() => {
+    const store = readStore();
+    const id = args.identity;
+    if (!store.identities[id]) {
+      console.error(`Unknown identity: ${id}`);
+      process.exit(1);
+    }
+    _backfillH66Schema(store.identities[id]);
+    const before = !!store.identities[id].retired;
+    store.identities[id].retired = false;
+    store.identities[id].retiredAt = null;
+    store.identities[id].retiredReason = null;
+    writeStore(store);
+    console.log(JSON.stringify({ action: 'unretire', identity: id, wasRetired: before }, null, 2));
+  });
+}
+
 const cmd = process.argv[2];
 const args = parseArgs(process.argv.slice(3));
 switch (cmd) {
@@ -465,8 +657,14 @@ switch (cmd) {
   case 'list': cmdList(args); break;
   case 'stats': cmdStats(args); break;
   case 'record': cmdRecord(args); break;
+  case 'prune': cmdPrune(args); break;
+  case 'unretire': cmdUnretire(args); break;
   default:
-    console.error('Usage: agent-identity.js {init|assign|list|stats|record} [args]');
+    console.error('Usage: agent-identity.js {init|assign|list|stats|record|prune|unretire} [args]');
+    console.error('  prune [--auto] [--retire-min-verdicts N] [--retire-pass-rate-max F] [--specialist-min-verdicts N] [--specialist-pass-rate-min F] [--specialist-min-invocations N]');
+    console.error('    Default: advisory (prints recommendations). --auto applies them.');
+    console.error('  unretire --identity <persona.name>');
+    console.error('    Restore a soft-retired identity to the active pool.');
     console.error('See https://github.com/anthropics/claude-code for context.');
     process.exit(1);
 }
