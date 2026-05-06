@@ -2,6 +2,14 @@
 
 Deferred work from prior phases, captured here so nothing important gets silently dropped. Each entry: scope, rationale, dependencies, rough estimate.
 
+## Phase H.6.3 — skill-forge auto-warn at assign-time — SHIPPED
+
+**Status**: shipped. Closes the last H.6.1 gap. `agent-identity assign --persona X` now surfaces a `forgeNeeded` field (split into required-blockers and recommended-advisory) at the JSON output, plus a human-readable `warning` field when blockers exist. Optional `--require-forged` flag exits non-zero on blockers — for pipelines that want a hard gate.
+
+The forge→assign→spawn flow is now explicit (see `patterns/skill-bootstrapping.md` for the 3-step pattern).
+
+**Note**: this is a WARN, not an AUTO-FIX. The toolkit doesn't auto-invoke `/forge` (deliberate — forging is high-risk + needs user gate per the existing skill-bootstrapping pattern). What's automated: surfacing the gap to the orchestrator at assign-time so they can act on it explicitly.
+
 ## Phase H.6.2 + H.6.4 — Node/Express routing coherence — SHIPPED
 
 **Status**: shipped. Closes the load-bearing routing-coherence gap from H.6.1 (Express tasks couldn't be coherently routed). New `13-node-backend` persona with Node-specific contract + KB scope + identity roster; stack-skill-map extended with Backend — Node entry; 2 new KB docs (`node-runtime-basics`, `express-essentials`); re-run of H.6.1 task-1 routing walkthrough now succeeds.

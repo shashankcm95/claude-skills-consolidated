@@ -132,11 +132,41 @@ function cmdInit() {
   });
 }
 
+// H.6.3 (CS-3 H.6.1 forge-orchestration gap, also flagged in H.5.6 mio
+// dogfood): scan the persona contract at assign-time and surface any
+// `not-yet-authored` skills as a `forgeNeeded` field on the assign output.
+// This makes the gap visible to the orchestrator BEFORE spawn (vs surfacing
+// it post-hoc in the spawn report). Optional `--require-forged` flag exits
+// non-zero when any required skill is not-yet-authored — used by build-team
+// pipelines that want to block-on-forge.
+function _readPersonaContract(persona) {
+  const fs = require('fs');
+  const path = require('path');
+  const contractsBase = process.env.HETS_CONTRACTS_DIR ||
+    path.join(process.env.HOME, 'Documents', 'claude-toolkit', 'swarm', 'personas-contracts');
+  const fp = path.join(contractsBase, `${persona}.contract.json`);
+  try { return JSON.parse(fs.readFileSync(fp, 'utf8')); } catch { return null; }
+}
+
+function _scanSkillGaps(contract) {
+  if (!contract || !contract.skills) return { required: [], recommended: [] };
+  const status = contract.skills.skill_status || {};
+  const required = (contract.skills.required || []).map((s) => ({
+    skill: s, status: status[s] || 'unknown',
+  })).filter((s) => s.status === 'not-yet-authored');
+  const recommended = (contract.skills.recommended || []).map((s) => ({
+    skill: s, status: status[s] || 'unknown',
+  })).filter((s) => s.status === 'not-yet-authored');
+  return { required, recommended };
+}
+
 function cmdAssign(args) {
   if (!args.persona) {
-    console.error('Usage: assign --persona <NN-name> [--task <tag>]');
+    console.error('Usage: assign --persona <NN-name> [--task <tag>] [--require-forged]');
     process.exit(1);
   }
+  let exitCode = 0;
+  let output;
   withLock(() => {
     const store = readStore();
     if (!store.rosters[args.persona]) {
@@ -155,8 +185,19 @@ function cmdAssign(args) {
 
     writeStore(store);
 
+    // H.6.3: scan contract for skill gaps. Cheap (file read + filter); only
+    // runs at assign-time (low frequency). Result joined into the standard
+    // assign output as `forgeNeeded` field.
+    const contract = _readPersonaContract(args.persona);
+    const skillGaps = _scanSkillGaps(contract);
+    const forgeNeeded = {
+      required: skillGaps.required,        // not-yet-authored required skills (BLOCKERS)
+      recommended: skillGaps.recommended,  // not-yet-authored recommended skills (advisory)
+    };
+    const blocking = forgeNeeded.required.length > 0;
+
     const fullId = `${args.persona}.${name}`;
-    console.log(JSON.stringify({
+    output = {
       action: 'assign',
       persona: args.persona,
       name,
@@ -164,8 +205,18 @@ function cmdAssign(args) {
       tier: tierOf(identity),
       totalSpawns: identity.totalSpawns,
       task: args.task || null,
-    }, null, 2));
+      forgeNeeded,
+    };
+    if (blocking) {
+      output.warning = `${forgeNeeded.required.length} required skill(s) marked not-yet-authored: ${forgeNeeded.required.map((s) => s.skill).join(', ')}. Forge before spawning OR proceed with KB+contract only.`;
+      if (args['require-forged']) {
+        output.error = 'assign blocked: --require-forged + missing required skill(s)';
+        exitCode = 2;
+      }
+    }
   });
+  console.log(JSON.stringify(output, null, 2));
+  if (exitCode) process.exit(exitCode);
 }
 
 function cmdList(args) {

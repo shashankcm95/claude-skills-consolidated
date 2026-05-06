@@ -16,11 +16,31 @@ A toolkit without specialized skills can only handle generic tasks. A toolkit th
 ## Components
 
 - **Catalog query**: `kb-resolver list --tag <topic>` — orchestrator checks what's available
-- **Missing-skill detection**: orchestrator's plan includes `requiredSkills[]`; any name not in the catalog is "missing"
-- **User pause point**: orchestrator emits a structured prompt with options (allow / proceed-without / cancel); does not spawn until user replies
+- **Missing-skill detection at assign-time** (H.6.3): `agent-identity assign --persona X` now returns a `forgeNeeded` field listing any `not-yet-authored` skills from the persona contract. Required skills are blockers; recommended skills are advisory. With `--require-forged`, the assign command exits non-zero (code 2) if any required skill is missing — gives build-team pipelines a hard gate.
+- **User pause point**: orchestrator inspects `forgeNeeded.required`; if non-empty, emits a structured prompt with options (allow forge / proceed-without / cancel); does not spawn until user replies
 - **Forge invocation**: `/forge` skill (already exists in the toolkit) authors a new skill from a description + (optionally) internet research
 - **Review gate**: `/review` skill validates the bootstrapped skill — must pass before catalog admission
 - **Catalog admission**: `kb-resolver register <kb_id>` adds the new skill; future runs see it as available
+
+## The 3-step orchestrator flow (H.6.3)
+
+```
+1. assign:  node ~/.claude/scripts/agent-team/agent-identity.js \
+              assign --persona <NN-name> --task "..."
+            ↓
+            output JSON includes `forgeNeeded.required` + `forgeNeeded.recommended`
+            
+2. forge?:  if forgeNeeded.required is non-empty:
+              prompt user → /forge each missing skill → /review → admit
+            else: skip forward
+            ↓
+            
+3. spawn:   Agent invocation against the persona, with forged skills
+            now in the catalog; the spawn prompt lists every required skill
+            as `available`
+```
+
+Optional automation: pipelines can use `assign --require-forged` to fail-fast at step 1 instead of warning, forcing the orchestrator to address gaps before reaching step 3.
 
 ## Failure Modes
 
