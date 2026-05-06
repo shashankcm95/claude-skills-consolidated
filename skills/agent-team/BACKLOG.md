@@ -25,15 +25,22 @@ Deferred work from prior phases, captured here so nothing important gets silentl
 
 **Estimate**: ~150-200 LoC + ~3-4hr design + integration. Won't start until ≥20 verdicts accumulate.
 
-## Phase H.6.7 — canonical-source registry (L2 of evolution loop)
+## Phase H.6.7 — canonical-source registry (L2 of evolution loop) — SHIPPED
 
-**Status**: queued next after H.6.6. Closes the "skill-forge should consult official docs first, internet generic guides second" finding.
+**Status**: shipped. New KB doc `kb:hets/canonical-skill-sources` (23 entries across 6 domains) + skill-forge step 2a "canonical-source lookup" + skill-bootstrapping pattern updated. Skill-forge now consults the registry FIRST; generic internet research is the fallback when no canonical source exists.
 
-**Scope**: New KB doc `kb:hets/canonical-skill-sources` mapping skill names to authoritative source URLs (e.g., `react → https://react.dev/reference`, `kubernetes → https://kubernetes.io/docs`, `node-backend-development → https://nodejs.org/docs`, `swift-development → https://developer.apple.com/documentation/swift`, etc.). ~10-15 entries covering web, mobile, backend, ml, infra, security domains. Skill-forge skill updated to query this registry first; falls back to internet research when no canonical source exists. Pattern docs (skill-bootstrapping, missing-capability-signal) updated with the registry reference.
+**What landed**:
+- 23 canonical-source entries: web/frontend (5), backend (6), mobile (3), data/ML (4), infra/devops (3), security (2)
+- Each entry has `url` + `type` (`reference` > `book` > `getting-started` > `spec`) + `notes` (version pinning, framing nuances)
+- KB doc registered + resolves at `kb:hets/canonical-skill-sources@106baa33`
+- skill-forge SKILL.md step 2a documents the lookup + canonical-first rationale
+- skill-bootstrapping pattern's failure mode #2 (low-quality bootstrap) and #3 (licensing risk) explicitly note the H.6.7 reduction
+- New failure mode #5 (stale URLs) acknowledged with version-pinning + quarterly audit counter
 
-**Why this matters**: tech skills (React, Kubernetes, Spring Boot) have authoritative documentation that's structurally better than generic blog posts. Forging a skill from official syntax/patterns produces higher-quality scaffolds than scraping Stack Overflow. This is the L2 layer of the evolution-cycle vision: better INPUTS to the substrate (canonical sources) → better intermediate work product (forged skills) → better verdicts → faster trust accumulation → faster L3 selection signal.
-
-**Estimate**: ~100 LoC (KB doc + skill-forge update) + ~1.5 hr.
+**H.6.7 follow-ups (deferred)**:
+- **Quarterly URL audit** — projects relocate docs (React did; Node did). A `kb-resolver scan` extension that follows registry URLs and flags 404s would automate the audit. ~50 LoC + ~1 hr.
+- **Skill-forge canonical-source enforcement test** — when a skill IS in the registry, validate that the forged scaffold cites the canonical URL. Useful E2E probe. ~30 LoC.
+- **Auto-extend convention** — sub-agent forging a skill that SHOULD have had a canonical source emits `request: { type: extend-canonical-sources }` via missing-capability-signal. Schema reserved (extend-canonical-sources is the proposed type); wire-up follows when the first such request appears in the wild.
 
 ## Phase H.6.6 — lifecycle primitives + L3-forward schema — SHIPPED
 
