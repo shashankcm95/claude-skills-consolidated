@@ -2,6 +2,18 @@
 
 Deferred work from prior phases, captured here so nothing important gets silently dropped. Each entry: scope, rationale, dependencies, rough estimate.
 
+## Phase H.6.5 — missing-capability-signal pattern (autonomous platform extension) — SHIPPED
+
+**Status**: shipped. Closes the meta-finding from post-H.6.4 conversation: *"the orchestrator should be authoring personas, not the user hand-writing them."*
+
+The toolkit can now grow its own substrate (personas, skills, KB docs, stack-map entries) on demand — gated by user approval. **Convention, not new code**: sub-agents diagnose; root acquires. New pattern doc + spawn-conventions schema + architect persona update + build-team workflow extension.
+
+The deeper framing: this is the toolkit's commitment to **autonomous platform** rather than just **marketplace plugin**. Anyone using the plugin can grow it to fit their stack without needing hand-authoring expertise.
+
+**H.6.5 follow-ups (deferred)**:
+- **14-python-backend** persona — would now be triggered by the convention next time someone runs a Python-backend task; the architect would emit `request: forge-persona` and root would author it via the H.6.5 flow. No code work needed; just a future test scenario.
+- **post-task review hook** — automated check that sub-agents didn't write substrate files (would catch convention violations). ~30 LoC linter scanning the sub-agent's tool-use record. Not load-bearing yet (we trust the convention); could ship when the toolkit gets adopted by external users who haven't internalized the pattern.
+
 ## Phase H.6.3 — skill-forge auto-warn at assign-time — SHIPPED
 
 **Status**: shipped. Closes the last H.6.1 gap. `agent-identity assign --persona X` now surfaces a `forgeNeeded` field (split into required-blockers and recommended-advisory) at the JSON output, plus a human-readable `warning` field when blockers exist. Optional `--require-forged` flag exits non-zero on blockers — for pipelines that want a hard gate.

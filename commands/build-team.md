@@ -43,9 +43,26 @@ After all spawned actors complete + verification + (per policy) challenger pairs
 - Each persona's `node-actor-{persona}-{identity}.md` in `swarm/run-state/<run-id>/`
 - Optional: super-agent synthesis at `node-super-root.md` if team-size ≥3
 
-### 4. Don't auto-commit
+### 4. Handle capability requests from sub-agents (H.6.5)
+
+After every spawned actor completes, scan its return value for a `request:` block in the `## Notes` section. Sub-agents follow the **missing-capability-signal** convention (see `patterns/missing-capability-signal.md`): they do NOT write substrate files themselves; they emit structured requests for root (you, the orchestrator) to act on.
+
+For each request, surface to the user with the concrete file list, then act per the user's decision:
+
+| Request type | Root acquires by | User-gate question |
+|--------------|---------------------|----------------------|
+| `forge-skill` | Invoke `/forge` skill (existing flow) | "Author skill X via /forge?" |
+| `forge-persona` | Direct authoring via Edit/Write — 4 files (persona.md, contract.json, 2 KB docs) + 3 config edits (DEFAULT_ROSTERS in agent-identity.js, live `agent-identities.json`, stack-skill-map) | "Author new persona X with these 4 files + 3 config edits?" |
+| `author-kb-doc` | Direct Write of the KB doc + `kb-resolver scan` to register | "Author KB doc kb:X/Y at path Z?" |
+| `extend-stack-map` | Edit `kb:hets/stack-skill-map` to add the new stack entry | "Extend stack-skill-map with entry for stack X?" |
+
+Skip a request if the user rejects, but record the rejection in the run notes. **Never silently ignore a request** — that's how capability gaps perpetuate across runs.
+
+### 5. Don't auto-commit
 
 Same convention as `/chaos-test`: this command produces *artifacts* the user can review and act on. It does NOT auto-commit code, push branches, or merge PRs. Spawned personas may write code (e.g., 09-react-frontend implementing a component) but the user explicitly reviews + commits.
+
+Capability requests acquired in step 4 ARE allowed to land as committed file additions on a feature branch (substrate extensions persist; not auto-committed but the user is expected to commit them once the run finishes since they're tracked as toolkit growth).
 
 ## What this command is NOT
 

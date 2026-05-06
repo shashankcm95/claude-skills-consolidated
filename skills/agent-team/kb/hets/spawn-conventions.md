@@ -90,3 +90,36 @@ See `kb:hets/identity-roster` for the canonical roster per persona.
 ### Challenger spawns (H.2.3)
 
 After an implementer completes, the parent MAY spawn a challenger to surface disagreements. Challenger uses a different convention (different identity-pick policy, different contract, different output shape). See `kb:hets/challenger-conventions` for the full flow.
+
+### Capability-gap signal (H.6.5)
+
+When a sub-agent (architect, builder, auditor) identifies a missing toolkit capability — a missing persona, skill, KB doc, stack-skill-map entry — it does NOT write the file itself. It returns a structured `request` in its `## Notes` section. Root reads the request and acquires the missing capability using its full toolkit context (Edit/Write tools, /forge skill, kb-resolver register, etc.).
+
+Schema (one or more requests per spawn return):
+
+```yaml
+## Notes — Capability requests
+
+- request:
+    type: forge-persona | forge-skill | author-kb-doc | extend-stack-map
+    scope: <human-readable description>
+    proposed_name: <hint; root may override>      # for forge-persona / forge-skill
+    rationale: <why this gap matters>
+    related_skills: [...]                          # for forge-persona / forge-skill
+    related_kb_scope: [...]                        # for forge-persona / author-kb-doc
+    suggested_files:                               # for author-kb-doc
+      - path: skills/agent-team/kb/<domain>/<name>.md
+        purpose: <one line>
+```
+
+The sub-agent MUST NOT:
+- Write any persona / contract / KB / stack-map files
+- Edit `agent-identity.js` rosters or the live `~/.claude/agent-identities.json`
+- Make file-level decisions about layout, naming, schema
+
+The sub-agent MUST:
+- Cite the source where the gap was identified (file:line in the contract / stack-map / persona that reveals the gap)
+- Provide a precise proposal that root could act on
+- Mark the task as `blocked-on-capability-gap` if the missing capability is load-bearing for the task
+
+See `patterns/missing-capability-signal.md` for the full pattern + failure modes + user-gate flow.

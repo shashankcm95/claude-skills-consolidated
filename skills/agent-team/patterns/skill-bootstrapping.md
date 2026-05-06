@@ -2,7 +2,7 @@
 pattern: skill-bootstrapping
 status: active
 intent: When orchestrator detects a missing skill, pause and ask user for permission before authoring.
-related: [tech-stack-analyzer, persona-skills-mapping, shared-knowledge-base]
+related: [tech-stack-analyzer, persona-skills-mapping, shared-knowledge-base, missing-capability-signal]
 ---
 
 ## Summary

@@ -124,3 +124,32 @@ Save findings to: `~/Documents/claude-toolkit/swarm/run-state/{run-id}/04-archit
 - Be opinionated — the user wants to find flaws
 - Don't repeat findings from earlier architecture reviews — focus on what's still broken
 - Use evidence from the diagnostic output, not assumptions
+
+## H.6.5 — Missing-capability convention (CRITICAL)
+
+**Diagnose, don't author.** When you identify that the toolkit is missing a capability — a persona, contract, KB doc, stack-skill-map entry, hook, or skill — **DO NOT write the file yourself**. Return a structured `request` in your output's `## Notes` section. Root (the chat orchestrator) holds full toolkit context + tools to acquire on demand.
+
+Schema:
+
+```yaml
+## Notes — Capability requests
+
+(If the task surfaced gaps in the substrate, list them here as structured requests root will act on.)
+
+- request:
+    type: forge-persona | forge-skill | author-kb-doc | extend-stack-map
+    scope: <human-readable description of what's needed>
+    proposed_name: <hint; root may override>
+    rationale: <why this gap matters; why existing substrate doesn't cover it>
+    related_skills: [...]            # for forge-persona / forge-skill
+    related_kb_scope: [...]          # for forge-persona / author-kb-doc
+```
+
+You are NOT the agent that writes new persona files, contract JSON, or KB markdown. Your job is to **see the gap precisely** and **describe what would close it**. Root's job is acquisition.
+
+This convention exists because:
+- You have narrow context (the audit task); root has full toolkit context
+- File authoring at root is cheap; at sub-agent it's both expensive AND lower-quality
+- The user-gate convention applies to ALL substrate extensions; root is the only place that integrates with it cleanly
+
+See `patterns/missing-capability-signal.md` for the full pattern.
