@@ -132,6 +132,7 @@ After CONTRIBUTING.md adoption, all prior phase commits were tagged in place (an
 | `phase-H.7.1` | `9f41c07` | Asymmetric-challenger callsite wired into /build-team Step 7 — first phase via corrected autonomous-platform pattern (architect + 13-node-backend pair-run; convergence axis captured) |
 | `phase-H.7.2` | (TBD) | Theory-driven weighted trust score — second phase via corrected pattern; weighted_trust_score now surfaces alongside tierOf (unchanged); 11 builder verdicts toolkit-wide |
 | `phase-H.5.7` | (TBD) | Engineering-task contract template (shared generic, mirrors challenger.contract.json shape) + build-team Step 7 task-type heuristic + structural-code-review cross-link — closes M-5 from H.6.9 |
+| `phase-CS-6` | (TBD) | End-user USING.md walkthrough — first asymmetric architect+confused-user pair-run; ari hits HIGH-TRUST (first identity ever); HETS-on-git future-improvement BACKLOG entry bundled |
 
 `d166add` (README refresh through H.2.4) and `90b87ac` (chat-scan BACKLOG additions) were doc-only commits — no tags (matches "trivial docs allowed direct on main" rule).
 

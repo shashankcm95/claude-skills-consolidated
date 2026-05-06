@@ -18,6 +18,8 @@ cd ~/Documents/claude-toolkit && ./install.sh --all
 
 After install, restart Claude Code (or run `/reload-plugins`).
 
+**Using HETS on your real project?** See **[skills/agent-team/USING.md](skills/agent-team/USING.md)** — 7-step end-user walkthrough with a worked example (rate-limiting an Express API). For toolkit-internals, continue reading this README.
+
 > **Plugin manifest layout** — `.claude-plugin/plugin.json` lives in the conventional `.claude-plugin/` directory. `marketplace.json` lives at the **repository root** (so `/plugin marketplace add owner/repo` finds it via `source: "."`). This is the official Claude Code plugin layout — both files are required, just in different locations.
 
 > **Install path equivalence** — both paths produce the same on-disk state in `~/.claude/`. The `install.sh` route is kept indefinitely as a fallback for users in environments without `/plugin marketplace add` support (older Claude Code, restricted-network deployments, etc.) — it is **not** deprecated. Pick whichever fits your setup.

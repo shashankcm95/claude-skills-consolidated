@@ -2,6 +2,82 @@
 
 Deferred work from prior phases, captured here so nothing important gets silently dropped. Each entry: scope, rationale, dependencies, rough estimate.
 
+## Phase CS-6 — End-user USING.md walkthrough — SHIPPED
+
+**Status**: shipped via corrected autonomous-platform pattern (ari drafted; rafael challenged; root applied 3 inline revisions). Closes the persistent CS-6 BACKLOG item that's lived since H.2.x cross-phase chat-scan.
+
+### What landed
+- NEW `skills/agent-team/USING.md` (283 lines) — 7-step walkthrough for product-engineer audience adopting the toolkit on real projects
+- Worked example threaded through: H.6.8 rate-limiting task with real artifact paths
+- Troubleshooting matrix: 6 common failure modes with diagnostic + fix
+- README link added; CONTRIBUTING.md tag table updated
+
+### Cycle data
+- ari (04-architect, draft): 3 findings, 18 citations, PASS via H.5.7 engineering-task contract — first natural use of the new contract template
+- rafael (02-confused-user, challenger): 4 challenges, 6 citations, PASS via challenger.contract.json
+- Convergence: agree (structural alignment; 3 of 4 rafael challenges applied inline; CHALLENGE-1 already addressed by ari's existing inline definition)
+- Toolkit verdicts: 14 → 16 (+2 paired) = 80% to n=20
+
+### Trust milestone
+**ari hit HIGH-TRUST** — first identity in toolkit history to satisfy the tier-formula gates (≥5 verdicts AND passRate ≥ 0.8). The trust system's tier promotion fired naturally based on real verdict accumulation.
+
+### CS-6 follow-ups (deferred)
+- **Onboarding skill** (`/onboard` slash command) — interactive walkthrough version. Pair with USING.md.
+- **Multi-language USING.md** — English-only today.
+- **Auto-generation from SKILL.md sources** — defer; manual-write produces better narrative.
+- **Video walkthrough** — written-only for now.
+
+## Future direction — HETS-on-git portfolio (DEFERRED on substrate gap)
+
+**Status**: deferred. The architectural insight is captured here; implementation depends on resolving an upstream substrate problem.
+
+**The vision**: trust scores derived from actual git track record per identity, analogous to how human developers build GitHub portfolios over time. Each identity (e.g., `13-node-backend.kira`) accumulates contributions across phases; trust signals derive from `git log`, `git blame`, merge-cleanliness, line-survival, CI pass rate, revert rate. Replaces self-reported quality factors with provable git-native metrics.
+
+**Why this would help**:
+- Provability over self-report (today's trust formula is built on agent-claimed verdicts; could be gamed)
+- Multi-axis trust signals natively (commits, line-stability, conflict rate, revert rate, etc.)
+- Forensics via `git bisect` (which identity introduced this bug?)
+- Cross-project portability (an identity's portfolio travels with the git history)
+- Closes the self-improvement loop with hard ground truth instead of self-attestation
+
+**Why deferred — the substrate gap**:
+LLM identities have **no first-class git credentials**. The `--author="kira <kira@13-node-backend.hets>"` string is just text — anyone with repo write-access can spoof it. There's no GPG key per identity, no GitHub account per identity, no cryptographic backing for "kira authored this commit." Without that, the portfolio is anchored to the human user's git config, not to any agent identity. The whole provability story collapses.
+
+Resolving the gap would require:
+- Per-identity GPG keys (signed commits)
+- Per-identity GitHub bot accounts (or organization-managed identities) with scoped repo write
+- Audit-trail integrity layer (commits signed by identity-key; verifier checks signature)
+- Permissions model for sub-agent git operations
+- Cross-machine identity portability (signing keys travel)
+
+This is multi-month substrate work, dependent on Anthropic / Claude Code platform capabilities that don't exist today.
+
+**Pre-conditions to revisit**:
+- Claude Code (or similar) ships per-agent credential management
+- The toolkit is used across enough projects that cross-project portability becomes load-bearing
+- Trust signal needs to be defensible to external skeptics (today it's just internal observability)
+
+**Conceptual mapping** (the structural alignment that makes this attractive):
+
+| HETS concept | Git primitive | Alignment |
+|--------------|---------------|-----------|
+| Identity | git author | tight (currently spoofable without credentials) |
+| Spawn | commit | tight |
+| Verdict | CI status / git notes | tight |
+| Phase | feature branch + tag | tight (already do this) |
+| Pair-run convergence | merge result (clean=agree; conflict=disagree) | tight |
+| Trust formula | derived from git log + blame + revert history | derivable |
+| Persona | (no clean equivalent — encode in author email pattern) | weak |
+
+**Stages of adoption** (when conditions become true):
+
+- Stage 1: identity-as-author + structured commit trailers (~1 hr; pure addition; could ship today as observability layer with caveat that authorship is spoofable)
+- Stage 2: branch-per-persona-per-task for parallel work (~3-4 hr; valuable when first parallel-pair task arrives)
+- Stage 3: trust formula derives from git history (~5-8 hr; replaces JSON canonical source)
+- Stage 4: full team-on-git workflow (sub-agent committers, PR review by orchestrator, CI as contract-verifier)
+
+The pattern doc capturing this insight will be authored as part of a future phase when conditions become favorable. Today's BACKLOG entry preserves the architectural thinking.
+
 ## Phase H.5.7 — Engineering-task contract template — SHIPPED
 
 **Status**: shipped via the corrected autonomous-platform pattern (theo designed; kira implemented; root coordinated). Closes M-5 from H.6.9 ("contract-shape mismatch — 4/5 cycle tasks contorted engineering work into audit-shape") + the original H.5.6 H-1 finding from `12-security-engineer.mio`.
