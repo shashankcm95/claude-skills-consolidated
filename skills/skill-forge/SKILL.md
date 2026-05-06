@@ -25,6 +25,25 @@ Determine:
 - **Scope**: What does it handle? What does it NOT handle?
 - **Conventions**: What standards / patterns the agent should encode (these go directly in the system prompt — Claude Code does not persist agent state across invocations)
 
+### 2a. Canonical-source lookup (H.6.7)
+Before generic internet research, consult the canonical-source registry for tech skills:
+
+```bash
+# Read the registry once at forge time
+node ~/.claude/scripts/agent-team/kb-resolver.js cat hets/canonical-skill-sources
+```
+
+Look up the skill name in the `### Registry` section. If a canonical source exists:
+- **Use the `url` as the PRIMARY reference** — this is the project owners' authoritative documentation
+- **Note the `type`** (`reference` > `book` > `getting-started` > `spec`) to scope research depth
+- **Apply the `notes` field** as additional context to the forge prompt (e.g., "v18+ only", "App Router post-13.4", "Pydantic v2 integration")
+
+If no canonical source exists, fall back to generic internet research (existing behavior — no regression).
+
+**Why canonical-first**: tech skills (React, Kubernetes, Spring Boot) have authoritative docs that are structurally better than generic blog posts — comprehensive, current, license-clear, and maintained by the project owners. A skill forged from `react.dev/reference` encodes the React team's idioms; one forged from "react best practices 2024" encodes whichever blog ranked highest that month.
+
+**At task end**: if you forged a skill that SHOULD have had a canonical source but the registry didn't list it, surface the gap via missing-capability-signal `request: { type: extend-canonical-sources, ... }` so root can update the registry. This is L2 of the evolution-cycle vision: better INPUTS to the substrate produce higher-quality skills, faster trust accumulation.
+
 ### 3. Create the File
 
 **For agents** — write to `~/.claude/agents/{name}.md`:

@@ -18,7 +18,8 @@ A toolkit without specialized skills can only handle generic tasks. A toolkit th
 - **Catalog query**: `kb-resolver list --tag <topic>` — orchestrator checks what's available
 - **Missing-skill detection at assign-time** (H.6.3): `agent-identity assign --persona X` now returns a `forgeNeeded` field listing any `not-yet-authored` skills from the persona contract. Required skills are blockers; recommended skills are advisory. With `--require-forged`, the assign command exits non-zero (code 2) if any required skill is missing — gives build-team pipelines a hard gate.
 - **User pause point**: orchestrator inspects `forgeNeeded.required`; if non-empty, emits a structured prompt with options (allow forge / proceed-without / cancel); does not spawn until user replies
-- **Forge invocation**: `/forge` skill (already exists in the toolkit) authors a new skill from a description + (optionally) internet research
+- **Canonical-source lookup** (H.6.7): before generic internet research, `/forge` consults `kb:hets/canonical-skill-sources` — a registry mapping skill names to authoritative documentation URLs. Skills with canonical sources (e.g., `react → react.dev/reference`, `kubernetes → kubernetes.io/docs`) get forged from project-owner-maintained references rather than miscellaneous blog content.
+- **Forge invocation**: `/forge` skill (already exists in the toolkit) authors a new skill from a description + canonical source (when available) + (optionally) internet research
 - **Review gate**: `/review` skill validates the bootstrapped skill — must pass before catalog admission
 - **Catalog admission**: `kb-resolver register <kb_id>` adds the new skill; future runs see it as available
 
@@ -45,9 +46,10 @@ Optional automation: pipelines can use `assign --require-forged` to fail-fast at
 ## Failure Modes
 
 1. **User approval fatigue** — every chaos run pauses for skill approvals. Counter: per-session "approve all instances of forge for this stack" preference (opt-in only, never default).
-2. **Low-quality bootstrapped skill** — `/forge` produces a generic doc that claims expertise it doesn't have. Counter: required `/review` step before admission; user can reject the skill at review.
-3. **Internet-sourced content licensing** — pulled content may be copyrighted. Counter: `/forge` must record sources for every claim; review step inspects for copyright issues; user-gate makes this an explicit choice.
+2. **Low-quality bootstrapped skill** — `/forge` produces a generic doc that claims expertise it doesn't have. Counter: required `/review` step before admission; user can reject the skill at review. **Reduced (H.6.7)** by canonical-source registry — when a canonical source exists, the forged skill encodes project-owner idioms instead of best-of-Stack-Overflow.
+3. **Internet-sourced content licensing** — pulled content may be copyrighted. Counter: `/forge` must record sources for every claim; review step inspects for copyright issues; user-gate makes this an explicit choice. **Reduced (H.6.7)** by canonical-source registry — official docs are usually permissively licensed.
 4. **Skill name collision** — bootstrapped skill `react` collides with existing `react` in catalog. Counter: collision check at admission; user prompted to rename or replace.
+5. **Stale canonical source URLs** — projects relocate their docs (React did it; Node did it). Counter: `kb:hets/canonical-skill-sources` carries `notes` field for version pinning; quarterly audit refreshes URLs; missing entries fall back to generic search (no regression).
 
 ## Validation Strategy
 

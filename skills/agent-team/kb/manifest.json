@@ -294,6 +294,19 @@
         "starter"
       ],
       "lastUpdated": "2026-05-06T12:33:55.309Z"
+    },
+    "hets/canonical-skill-sources": {
+      "path": "hets/canonical-skill-sources.md",
+      "version": 1,
+      "hash": "106baa3368f2ae812c43b46184e6cdda0b29259b5076fe24b14f88c65ae85b0f",
+      "shortHash": "106baa33",
+      "tags": [
+        "hets",
+        "skill-forge",
+        "canonical-sources",
+        "evolution-loop-l2"
+      ],
+      "lastUpdated": "2026-05-06T17:30:03.183Z"
     }
   }
 }
